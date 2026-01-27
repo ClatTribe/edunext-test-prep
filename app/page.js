@@ -116,6 +116,15 @@ export default function AuthPage() {
       alert('Failed to send OTP: ' + error.message);
     }
   };
+  const handleGoogleLogin = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/dashboard/ai-prep`,
+      },
+    });
+    console.log("Initiating Google Login...");
+  };
 
   const handleRegistration = async () => {
     if (!validateRegistration()) return;
@@ -492,36 +501,34 @@ export default function AuthPage() {
 
         {/* Tab Switcher */}
         <div style={{
-          background: 'rgba(17, 24, 39, 0.6)',
           backdropFilter: 'blur(20px)',
+          display: 'flex',
           borderRadius: '1rem',
-          padding: '0.375rem',
           marginBottom: '1.5rem',
           border: '1px solid rgba(55, 65, 81, 0.6)',
           display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
           gap: '0.25rem',
-          flexShrink: 0
         }}>
           <button
-            onClick={() => { setIsLogin(false); setShowForgotPassword(false); }}
+            // onClick={() => { setIsLogin(false); setShowForgotPassword(false); }}
             style={{
               padding: '0.75rem 1.5rem',
+              alignItems: 'center',
               borderRadius: '0.75rem',
               fontWeight: '600',
-              fontSize: '0.875rem',
+              fontSize: '1.3rem',
               transition: 'all 0.3s',
               border: 'none',
               cursor: 'pointer',
-              background: !isLogin ? 'linear-gradient(135deg, #F59E0B 0%, #F97316 100%)' : 'transparent',
-              color: !isLogin ? 'white' : '#9CA3AF',
-              boxShadow: !isLogin ? '0 10px 20px -5px rgba(245, 158, 11, 0.4)' : 'none',
+              background:'linear-gradient(135deg, #F59E0B 0%, #F97316 100%)',
+              color: 'white',
+              boxShadow:'0 10px 20px -5px rgba(245, 158, 11, 0.4)',
               fontFamily: "'Inter', sans-serif"
             }}
           >
             Register
           </button>
-          <button
+          {/* <button
             onClick={() => { setIsLogin(true); setShowForgotPassword(false); }}
             style={{
               padding: '0.75rem 1.5rem',
@@ -538,7 +545,7 @@ export default function AuthPage() {
             }}
           >
             Login
-          </button>
+          </button> */}
         </div>
 
         {/* Scrollable Content Area */}
@@ -585,9 +592,9 @@ export default function AuthPage() {
                 </h2>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {/* <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}> */}
                 {/* Username */}
-                <div>
+                {/* <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#D1D5DB', marginBottom: '0.5rem' }}>
                     Username
                   </label>
@@ -619,10 +626,10 @@ export default function AuthPage() {
                     }}
                   />
                   {errors.username && <p style={{ color: '#EF4444', fontSize: '0.75rem', marginTop: '0.375rem', fontWeight: '500' }}>{errors.username}</p>}
-                </div>
+                </div> */}
 
                 {/* Full Name */}
-                <div>
+                {/* <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#D1D5DB', marginBottom: '0.5rem' }}>
                     Full Name
                   </label>
@@ -653,10 +660,10 @@ export default function AuthPage() {
                     }}
                   />
                   {errors.fullName && <p style={{ color: '#EF4444', fontSize: '0.75rem', marginTop: '0.375rem', fontWeight: '500' }}>{errors.fullName}</p>}
-                </div>
+                </div> */}
 
                 {/* Exam Selection */}
-                <div>
+                {/* <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#D1D5DB', marginBottom: '0.5rem' }}>
                     Preparing For
                   </label>
@@ -693,14 +700,14 @@ export default function AuthPage() {
                     ))}
                   </select>
                   {errors.examId && <p style={{ color: '#EF4444', fontSize: '0.75rem', marginTop: '0.375rem', fontWeight: '500' }}>{errors.examId}</p>}
-                </div>
+                </div> */}
 
                 {/* Email with OTP */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#D1D5DB', marginBottom: '0.5rem' }}>
+                  {/* <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#D1D5DB', marginBottom: '0.5rem' }}>
                     Email
-                  </label>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  </label> */}
+                  {/* <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <input
                       type="email"
                       name="email"
@@ -749,7 +756,7 @@ export default function AuthPage() {
                     >
                       {emailOtpSent ? '✓ Sent' : 'Send OTP'}
                     </button>
-                  </div>
+                  </div> */}
                   {errors.email && <p style={{ color: '#EF4444', fontSize: '0.75rem', marginTop: '0.375rem', fontWeight: '500' }}>{errors.email}</p>}
                   
                   {/* OTP Input + Timer + Resend */}
@@ -840,7 +847,7 @@ export default function AuthPage() {
                 </div>
 
                 {/* Phone with OTP */}
-                <div>
+                {/* <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#D1D5DB', marginBottom: '0.5rem' }}>
                     Phone (Optional)
                   </label>
@@ -871,10 +878,10 @@ export default function AuthPage() {
                     }}
                   />
                   {errors.phone && <p style={{ color: '#EF4444', fontSize: '0.75rem', marginTop: '0.375rem', fontWeight: '500' }}>{errors.phone}</p>}
-                </div>
+                </div> */}
 
                 {/* Password */}
-                <div>
+                {/* <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#D1D5DB', marginBottom: '0.5rem' }}>
                     Password
                   </label>
@@ -905,10 +912,10 @@ export default function AuthPage() {
                     }}
                   />
                   {errors.password && <p style={{ color: '#EF4444', fontSize: '0.75rem', marginTop: '0.375rem', fontWeight: '500' }}>{errors.password}</p>}
-                </div>
+                </div> */}
 
                 {/* Confirm Password */}
-                <div>
+                {/* <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#D1D5DB', marginBottom: '0.5rem' }}>
                     Confirm Password
                   </label>
@@ -939,10 +946,10 @@ export default function AuthPage() {
                     }}
                   />
                   {errors.confirmPassword && <p style={{ color: '#EF4444', fontSize: '0.75rem', marginTop: '0.375rem', fontWeight: '500' }}>{errors.confirmPassword}</p>}
-                </div>
+                </div> */}
 
                 {/* Submit Button */}
-                <button
+                {/* <button
                   onClick={handleRegistration}
                   style={{
                     width: '100%',
@@ -969,13 +976,52 @@ export default function AuthPage() {
                   }}
                 >
                   Create Account
+                </button> */}
+              {/* </div> */}
+              <button
+                  onClick={handleGoogleLogin}
+                  style={{
+                    width: '100%',
+                    display:'flex',
+                    alignItems: 'center',     
+                    padding: '1rem',
+                    paddingLeft:'5rem',
+                    background: 'white',
+                    gap: '12px',
+                    color: 'Black',
+                    fontWeight: '700',
+                    fontSize: '1rem',
+                    borderRadius: '0.75rem',
+                    border: 'none',
+                    cursor: 'pointer',
+                    marginTop: '1rem',
+                    boxShadow: '0 10px 20px -5px rgba(245, 158, 11, 0.4)',
+                    transition: 'all 0.3s',
+                    fontFamily: "'Inter', sans-serif"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.transform = 'translateY(-2px)';
+                    e.target.style.boxShadow = '0 20px 30px -8px rgba(245, 158, 11, 0.5)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.transform = 'translateY(0)';
+                    e.target.style.boxShadow = '0 10px 20px -5px rgba(245, 158, 11, 0.4)';
+                  }}
+                >
+                  <img 
+            className="w-6 h-6" 
+            src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
+            alt="Google logo" 
+          />Continue with Google       
                 </button>
-              </div>
-            </div>
+                
+    </div>
           )}
+       
+          
 
           {/* Login Form */}
-          {isLogin && (
+          {/* {isLogin && (
             <div style={{
               background: 'rgba(17, 24, 39, 0.6)',
               backdropFilter: 'blur(20px)',
@@ -1267,6 +1313,7 @@ export default function AuthPage() {
                     >
                       Forgot Password?
                     </button>
+                    
                   </div>
                 </>
               ) : (
@@ -1349,7 +1396,7 @@ export default function AuthPage() {
                 </div>
               )}
             </div>
-          )}
+          )} */}
         </div>
 
         {/* Footer */}

@@ -1,10 +1,45 @@
 'use client';
 
 import MathRenderer from '@/app/components/MathRenderer';
-import { useState, useEffect, useRef, memo, useMemo } from 'react';
+import { useState, useEffect, useRef, memo, useMemo,useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { ChevronUp, Info } from 'lucide-react';
+
+const TimerDisplay = memo(({ initialTime, onTimeUp }) => {
+  const [seconds, setSeconds] = useState(initialTime);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    setSeconds(initialTime);
+  }, [initialTime]);
+
+  useEffect(() => {
+    timerRef.current = setInterval(() => {
+      setSeconds((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current);
+          onTimeUp(); 
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [onTimeUp]);
+
+  const formatTime = (totalSeconds) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return <span>{formatTime(seconds)}</span>;
+});
 
 export default function ExamInterface() {
   const params = useParams();
@@ -23,7 +58,7 @@ export default function ExamInterface() {
   const [markedForReview, setMarkedForReview] = useState({});
   const [visited, setVisited] = useState({});
   
-  const [timeLeft, setTimeLeft] = useState(0);
+  const [seconds, setSeconds] = useState(0);
   const [totalTime, setTotalTime] = useState(0);
   
   const [loading, setLoading] = useState(true);
@@ -36,6 +71,7 @@ export default function ExamInterface() {
   const isMountedRef = useRef(true);
 
   const [questions, setQuestions] = useState([]);
+  
   
   const activeSection = useMemo(() => {
     if (sections.length === 0 || !questions[currentQuestionIndex]) return 0;
@@ -81,28 +117,28 @@ useEffect(() => {
     };
   }, [testId]);
 
-  useEffect(() => {
-    if (!totalTime || timeLeft <= 0 || !isInitialized) return;
+  // useEffect(() => {
+  //   if (!totalTime || seconds <= 0 || !isInitialized) return;
     
-    if (timerRef.current) clearInterval(timerRef.current);
+  //   if (timerRef.current) clearInterval(timerRef.current);
     
-    timerRef.current = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(timerRef.current);
-          if (isMountedRef.current) {
-            handleSubmitTest();
-          }
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+  //   timerRef.current = setInterval(() => {
+  //     setSeconds((prev) => {
+  //       if (prev <= 1) {
+  //         clearInterval(timerRef.current);
+  //         if (isMountedRef.current) {
+  //           handleSubmitTest();
+  //           return 0;
+  //         }
+  //       }
+  //       return prev - 1;
+  //     });
+  //   }, 1000);
 
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [totalTime, isInitialized]);
+  //   return () => {
+  //     if (timerRef.current) clearInterval(timerRef.current);
+  //   };
+  // }, [totalTime, isInitialized]);
 
   useEffect(() => {
     if (!isMountedRef.current || !isInitialized) return;
@@ -180,7 +216,7 @@ useEffect(() => {
       if (config.duration_minutes && isMountedRef.current) {
         const timeInSeconds = config.duration_minutes * 60;
         setTotalTime(timeInSeconds);
-        setTimeLeft(timeInSeconds);
+        setSeconds(timeInSeconds);
       }
 
       const sectionsExist = questionsData.some(q => q.contest_section_id);
@@ -299,7 +335,7 @@ useEffect(() => {
       const question = questions.find(q => q.id === questionId);
       if (!question) return;
 
-      const elapsedSeconds = totalTime - timeLeft;
+      const elapsedSeconds = totalTime - seconds;
       const entryMinutes = parseFloat((elapsedSeconds / 60).toFixed(2));
 
       const { data: existingResponses } = await supabase
@@ -407,7 +443,7 @@ useEffect(() => {
       const correctOptions = options?.filter(o => o.is_correct);
       const isCorrect = selectedOption && correctOptions?.some(o => o.id === selectedOption.id);
 
-      const elapsedSeconds = totalTime - timeLeft;
+      const elapsedSeconds = totalTime - seconds;
       const elapsedMinutes = parseFloat((elapsedSeconds / 60).toFixed(2));
 
       const { data: existingResponses } = await supabase
@@ -494,7 +530,7 @@ useEffect(() => {
     }));
 
     try {
-      const elapsedSeconds = totalTime - timeLeft;
+      const elapsedSeconds = totalTime - seconds;
       const elapsedMinutes = parseFloat((elapsedSeconds / 60).toFixed(2));
 
       const { data: options } = await supabase
@@ -586,7 +622,7 @@ useEffect(() => {
       
       if (latestResponse && !latestResponse.exit_timestamp) {
         const now = new Date().toISOString();
-        const elapsedSeconds = totalTime - timeLeft;
+        const elapsedSeconds = totalTime - seconds;
         const exitMinutes = parseFloat((elapsedSeconds / 60).toFixed(2));
         
         const entryTime = new Date(latestResponse.entry_timestamp).getTime();
@@ -632,7 +668,7 @@ useEffect(() => {
     }
 
     try {
-      const elapsedSeconds = totalTime - timeLeft;
+      const elapsedSeconds = totalTime - seconds;
       const elapsedMinutes = parseFloat((elapsedSeconds / 60).toFixed(2));
 
       const { data: existingResponses } = await supabase
@@ -686,7 +722,7 @@ useEffect(() => {
     }));
 
     try {
-      const elapsedSeconds = totalTime - timeLeft;
+      const elapsedSeconds = totalTime - seconds;
       const elapsedMinutes = parseFloat((elapsedSeconds / 60).toFixed(2));
 
       const { data: existingResponses } = await supabase
@@ -758,7 +794,7 @@ useEffect(() => {
       
       if (latestResponse && !latestResponse.exit_timestamp) {
         const now = new Date().toISOString();
-        const elapsedSeconds = totalTime - timeLeft;
+        const elapsedSeconds = totalTime - seconds;
         const exitMinutes = parseFloat((elapsedSeconds / 60).toFixed(2));
         
         const entryTime = new Date(latestResponse.entry_timestamp).getTime();
@@ -809,7 +845,7 @@ useEffect(() => {
         
         if (latestResponse && !latestResponse.exit_timestamp) {
           const now = new Date().toISOString();
-          const elapsedSeconds = totalTime - timeLeft;
+          const elapsedSeconds = totalTime - seconds;
           const exitMinutes = parseFloat((elapsedSeconds / 60).toFixed(2));
           
           const entryTime = new Date(latestResponse.entry_timestamp).getTime();
@@ -872,7 +908,7 @@ useEffect(() => {
   };
 
 
-  const handleSubmitTest = async () => {
+  const handleSubmitTest = useCallback(async () => {
     const confirmSubmit = window.confirm('Are you sure you want to submit the test?');
     if (!confirmSubmit) return;
 
@@ -1019,7 +1055,7 @@ useEffect(() => {
       }
 
       const unattempted = questionsData.length - answered;
-      const totalTimeSpent = totalTime > 0 ? (totalTime - timeLeft) / 60 : 0;
+      const totalTimeSpent = totalTime > 0 ? (totalTime - seconds) / 60 : 0;
       const markedCount = Object.values(markedForReview).filter(Boolean).length;
       const calculatedAccuracy = answered > 0 ? (correct / answered * 100) : 0;
 
@@ -1126,7 +1162,7 @@ useEffect(() => {
     } finally {
       setSubmitting(false);
     }
-  };
+  });
 
   // ✅ FIXED: isLastQuestionOfLastSection properly uses getCurrentSectionQuestions
   const isLastQuestionOfLastSection = () => {
@@ -1181,6 +1217,8 @@ useEffect(() => {
     return hasAnswer && isMarked;
   }).length;
 
+  
+
   return (
     <div className="flex h-screen bg-white font-sans overflow-hidden">
       <div className="flex flex-col flex-1 min-w-0">
@@ -1234,7 +1272,7 @@ useEffect(() => {
           </div>
 
           <div className="text-xs font-bold flex-shrink-0 ml-4" style={{ color: '#333333' }}>
-            Time Left: {formatTime(timeLeft)}
+             Time Left: <TimerDisplay initialTime={totalTime} onTimeUp={handleSubmitTest} /> 
           </div>
         </div>
 
@@ -1253,7 +1291,7 @@ useEffect(() => {
 
         <div className="flex-1 overflow-auto p-6 bg-white">
           {currentQuestion ? (
-            <MathRenderer key={currentQuestion.id}>
+            <MathRenderer>
             <div>
               <div className="mb-4">
                 <span className="text-sm text-gray-600">
