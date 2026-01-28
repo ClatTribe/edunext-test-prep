@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react'; // ✅ Add useCallback
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Dashboard from '../Dashboard';
@@ -41,40 +41,9 @@ export default function DashboardPage() {
         return;
       }
 
+      console.log('✅ User ID fetched:', user.id); // ✅ Add this
       setCurrentUserId(user.id);
 
-      // TODO: Fetch actual stats from Supabase
-      // Example queries you'll need to implement:
-      
-      // 1. Fetch user stats
-      // const { data: userStats } = await supabase
-      //   .from('user_stats')
-      //   .select('*')
-      //   .eq('user_id', user.id)
-      //   .single();
-
-      // 2. Fetch activity heatmap
-      // const { data: activities } = await supabase
-      //   .from('user_activities')
-      //   .select('date, question_count')
-      //   .eq('user_id', user.id)
-      //   .order('date', { ascending: false })
-      //   .limit(70);
-
-      // 3. Fetch subject analytics
-      // const { data: subjects } = await supabase
-      //   .from('subject_analytics')
-      //   .select('*, topics(*)')
-      //   .eq('user_id', user.id);
-
-      // 4. Fetch top performers
-      // const { data: topUsers } = await supabase
-      //   .from('users')
-      //   .select('username, rating')
-      //   .order('rating', { ascending: false })
-      //   .limit(5);
-
-      // For now, set empty stats
       setStats({
         streak: 0,
         rating: 0,
@@ -95,7 +64,8 @@ export default function DashboardPage() {
     }
   };
 
-  const handleNavigate = (viewState, examType) => {
+  // ✅✅ WRAP handleNavigate with useCallback ✅✅
+  const handleNavigate = useCallback((viewState, examType) => {
     console.log('🔥 Navigate clicked:', viewState, examType);
     
     switch(viewState) {
@@ -114,7 +84,7 @@ export default function DashboardPage() {
       default:
         console.log('Unknown view state:', viewState);
     }
-  };
+  }, [router]); // ✅ Add router as dependency
 
   if (loading) {
     return (
@@ -126,6 +96,8 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  console.log('📤 Passing to Dashboard - User ID:', currentUserId); // ✅ Add this
 
   return <Dashboard stats={stats} onNavigate={handleNavigate} currentUserId={currentUserId} />;
 }

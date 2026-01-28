@@ -424,7 +424,6 @@ const handleSectionChange = (sectionId) => {
 
   return (
     <div className="flex h-screen bg-white font-sans overflow-hidden relative">
-      
 
       {/* Left Side - Question Display */}
       <div className="flex flex-col flex-1 min-w-0">
