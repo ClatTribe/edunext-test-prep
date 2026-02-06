@@ -2,14 +2,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Flame, Trophy, Target, Zap, LayoutGrid, ChevronRight, BarChart3, Clock, Users, CalendarDays, Brain, Star, TrendingUp, BookOpen, AlertCircle, CheckCircle, Search, ChevronDown, ChevronUp, RotateCcw, Eye, FileText } from 'lucide-react';
+import { Flame, Trophy, Target, Zap, LayoutGrid, ChevronRight, BarChart3, Clock, Users, CalendarDays, Brain, Star, TrendingUp, BookOpen, AlertCircle, CheckCircle, Search, ChevronDown, ChevronUp, Eye, FileText } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-export default function Dashboard({ stats = {}, currentUserId }) {
+import Link from 'next/link';
+import AnalyticsView from '../../../components/AnalyticsView';
+
+export default function Dashboard({ stats = {}, currentUserId, onNavigate,onOpenAnalytics }) {
   const router = useRouter(); 
   const THEME_PRIMARY = "#F59E0B";
   const THEME_BG = "#0E172A";
-
 
   const [contests, setContests] = useState([]);
   const [previousContests, setPreviousContests] = useState([]);
@@ -19,16 +21,121 @@ export default function Dashboard({ stats = {}, currentUserId }) {
   const [selectedContest, setSelectedContest] = useState(null);
   const [showPreviousContests, setShowPreviousContests] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [resettingContest, setResettingContest] = useState(null);
   const [creatingViewMode, setCreatingViewMode] = useState(null);
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [latestTestId, setLatestTestId] = useState(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+
+  const statsData = {
+    rating: 2150,
+    subjectAnalytics: [
+      {
+        subject: "Physics",
+        accuracyTrend: [{ date: '1/2', value: 65 }, { date: '2/2', value: 78 }],
+        topics: [{ topic: "Rotational Dynamics", avgTime: 45, accuracy: 48 }]
+      }
+    ]
+  };
+
+  if (showAnalytics) {
+    return <AnalyticsView stats={statsData} onBack={() => setShowAnalytics(false)} />;
+  }
 
   useEffect(() => {
+    // ✅ Only call if currentUserId exists
+    if (currentUserId) {
+      calculateStreak();
+    }
     fetchContests();
+    
     const interval = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
     return () => clearInterval(interval);
+  }, [currentUserId]); // ✅ Add currentUserId as dependency
+
+  useEffect(() => {
+    async function fetchLatestTest(currentTestId) {
+      // test_attempts se sabse latest test_id nikalna
+      const { data } = await supabase
+        .from('test_attempts')
+        .select(`
+      obtained_marks,
+      test_id,
+      users (
+        username,
+        avatar_url
+      )
+    `).eq('test_id', currentTestId) // Particular test ka data
+    .order('obtained_marks', { ascending: false }); // High score upar
+
+      if (data) {
+        console.log(data);
+      }
+    }
+    fetchLatestTest();
   }, []);
+
+
+  
+  const calculateStreak = async () => {
+    try {
+      // ✅ Check if user ID exists
+      if (!currentUserId) {
+        console.log('⚠️ No user ID found, skipping streak calculation');
+        setCurrentStreak(0);
+        return;
+      }
+  
+      // Get all contests sorted by start time
+      const { data: allContests, error: contestsError } = await supabase
+        .from('contests')
+        .select('id, start_time, end_time')
+        .order('start_time', { ascending: false });
+  
+      if (contestsError) throw contestsError;
+  
+      // Get user's attempts - ✅ REMOVED is_view_only filter temporarily
+      const { data: userAttempts, error: attemptsError } = await supabase
+        .from('test_attempts')
+        .select('session_id, created_at')
+        .eq('user_id', currentUserId);
+        // ❌ Removed: .eq('is_view_only', false);
+  
+      if (attemptsError) {
+        console.error('❌ Supabase error:', attemptsError);
+        throw attemptsError;
+      }
+  
+      const attemptedContestIds = new Set(userAttempts?.map(a => a.session_id) || []);
+      
+      let streak = 0;
+      const now = new Date();
+  
+      // Check contests from most recent to oldest
+      for (const contest of allContests) {
+        const endTime = new Date(contest.end_time);
+        
+        // Skip future contests
+        if (endTime > now) continue;
+  
+        // If user attempted this contest, increment streak
+        if (attemptedContestIds.has(contest.id)) {
+          streak++;
+        } else {
+          // User missed this contest, streak breaks
+          break;
+        }
+      }
+  
+      console.log('🔥 Streak calculated:', streak);
+      setCurrentStreak(streak);
+      
+    } catch (error) {
+      console.error('Error calculating streak:', error);
+      setCurrentStreak(0);
+    }
+  };
 
   const fetchContests = async () => {
     try {
@@ -129,12 +236,17 @@ export default function Dashboard({ stats = {}, currentUserId }) {
         .insert([{
           session_id: selectedContest.id,
           user_id: currentUserId,
-          test_id: selectedContest.id
+          test_id: selectedContest.id,
+          is_view_only: false
         }]);
   
       if (error) throw error;
   
       console.log('✅ Test attempt created successfully');
+      
+      // Recalculate streak after new attempt
+      await calculateStreak();
+      
       router.push(`/exam/${selectedContest.id}?type=contest`);
       
     } catch (error) {
@@ -146,90 +258,10 @@ export default function Dashboard({ stats = {}, currentUserId }) {
     }
   };
 
-  const handleResetAttempt = async (contestId) => {
-    const confirmed = window.confirm(
-      '⚠️ Are you sure you want to reset your attempt?\n\n' +
-      'This will delete:\n' +
-      '• Your test attempt record\n' +
-      '• Your test session data\n' +
-      '• All your responses\n\n' +
-      'This action cannot be undone!'
-    );
-    
-    if (!confirmed) return;
-
-    try {
-      setResettingContest(contestId);
-      console.log('🔄 Starting reset for contest:', contestId);
-
-      const { data: sessions, error: sessionsError } = await supabase
-        .from('test_sessions')
-        .select('id')
-        .eq('test_id', contestId)
-        .eq('user_id', currentUserId);
-
-      if (sessionsError) {
-        console.error('❌ Error fetching sessions:', sessionsError);
-        throw sessionsError;
-      }
-
-      const sessionIds = sessions?.map(s => s.id) || [];
-      console.log('📦 Found sessions:', sessionIds);
-
-      if (sessionIds.length > 0) {
-        const { error: responsesError } = await supabase
-          .from('user_responses')
-          .delete()
-          .in('session_id', sessionIds);
-
-        if (responsesError) {
-          console.error('❌ Error deleting responses:', responsesError);
-          throw responsesError;
-        }
-        console.log('✅ Responses deleted');
-      }
-
-      const { error: attemptsError } = await supabase
-        .from('test_attempts')
-        .delete()
-        .eq('session_id', contestId)
-        .eq('user_id', currentUserId);
-
-      if (attemptsError) {
-        console.error('❌ Error deleting attempts:', attemptsError);
-        throw attemptsError;
-      }
-      console.log('✅ Test attempts deleted');
-
-      const { error: sessionDeleteError } = await supabase
-        .from('test_sessions')
-        .delete()
-        .eq('test_id', contestId)
-        .eq('user_id', currentUserId);
-
-      if (sessionDeleteError) {
-        console.error('❌ Error deleting sessions:', sessionDeleteError);
-        throw sessionDeleteError;
-      }
-      console.log('✅ Test sessions deleted');
-
-      alert('✅ Contest attempt reset successfully! You can now attempt it again.');
-      fetchContests();
-      
-    } catch (error) {
-      console.error('💥 Error resetting attempt:', error);
-      alert(`❌ Error resetting attempt: ${error.message}`);
-    } finally {
-      setResettingContest(null);
-    }
-  };
-
-  // NEW: Handle View Dashboard - Creates dummy attempt if not attempted
   const handleViewDashboard = async (contest) => {
     try {
       setCreatingViewMode(contest.id);
 
-      // Check if user has already attempted or viewed
       const { data: existingAttempt } = await supabase
         .from('test_attempts')
         .select('id, is_view_only')
@@ -238,7 +270,6 @@ export default function Dashboard({ stats = {}, currentUserId }) {
         .maybeSingle();
 
       if (existingAttempt) {
-        // Already exists - redirect accordingly
         if (existingAttempt.is_view_only) {
           router.push(`/results/${existingAttempt.id}/solution`);
         } else {
@@ -247,10 +278,8 @@ export default function Dashboard({ stats = {}, currentUserId }) {
         return;
       }
 
-      // User hasn't attempted - create dummy view-only attempt
       console.log('🔄 Creating view-only attempt for contest:', contest.id);
 
-      // Step 1: Create test session
       const { data: sessionData, error: sessionError } = await supabase
         .from('test_sessions')
         .insert({
@@ -265,7 +294,6 @@ export default function Dashboard({ stats = {}, currentUserId }) {
       if (sessionError) throw sessionError;
       console.log('✅ Session created:', sessionData.id);
 
-      // Step 2: Create test attempt with view-only flag
       const { data: attemptData, error: attemptError } = await supabase
         .from('test_attempts')
         .insert({
@@ -281,7 +309,6 @@ export default function Dashboard({ stats = {}, currentUserId }) {
       if (attemptError) throw attemptError;
       console.log('✅ View-only attempt created:', attemptData.id);
 
-      // Step 3: Fetch all questions for this contest
       const { data: questionsData, error: questionsError } = await supabase
         .from('questions')
         .select('id, question_type, positive_marks, negative_marks')
@@ -297,7 +324,6 @@ export default function Dashboard({ stats = {}, currentUserId }) {
 
       console.log(`📝 Found ${questionsData.length} questions`);
 
-      // Step 4: Create dummy user_responses for all questions (unattempted)
       const dummyResponses = questionsData.map(question => ({
         session_id: sessionData.id,
         question_id: question.id,
@@ -320,7 +346,6 @@ export default function Dashboard({ stats = {}, currentUserId }) {
       if (responsesError) throw responsesError;
       console.log('✅ Dummy responses created for all questions');
 
-      // Step 5: Redirect to Test Solution
       router.push(`/results/${attemptData.id}/solution`);
 
     } catch (error) {
@@ -346,21 +371,6 @@ export default function Dashboard({ stats = {}, currentUserId }) {
     }
   };
 
-  const handleViewAnalysis = async (contest) => {
-    const hasAttempted = await checkUserAttempt(contest.id);
-    
-    if (!hasAttempted) {
-      alert('You have not attempted this test yet!');
-      return;
-    }
-    
-    onNavigate(ViewState.ANALYTICS, { contestId: contest.id });
-  };
-
-  const handleViewSolution = (contest) => {
-    onNavigate('SOLUTIONS', { contestId: contest.id });
-  };
-
   const filteredPreviousContests = previousContests.filter(contest =>
     contest.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     contest.contest_number?.toString().includes(searchQuery) ||
@@ -384,6 +394,43 @@ export default function Dashboard({ stats = {}, currentUserId }) {
         })}
       </div>
     );
+  };
+
+  const handleShowLeaderboard = async () => {
+    setIsClicked(true);
+    setLoading(true);
+    try {
+      // test_attempts se sabhi data uthana
+      const { data, error } = await supabase
+        .from('test_attempts')
+        .select('user_id, obtained_marks, test_id')
+        .order('obtained_marks', { ascending: false });
+
+      if (error) throw error;
+
+      // 2. Names fetch karne ke liye API call (Aapka route.js)
+      const userIds = data.map(item => item.user_id);
+      const res = await fetch('/api/fetch-users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userIds })
+      });
+      const { userMap } = await res.json();
+
+      // 3. Data merge karna
+      const finalData = data.map((item, index) => ({
+        rank: index + 1,
+        name: userMap[item.user_id] || 'Anonymous',
+        score: item.obtained_marks,
+        testId: item.test_id
+      }));
+
+      setLeaderboard(finalData);
+    } catch (err) {
+      console.error("Error:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const weakTopics = stats.subjectAnalytics?.flatMap(s => s.topics?.filter(t => t.accuracy < 50)) || [];
@@ -465,14 +512,14 @@ export default function Dashboard({ stats = {}, currentUserId }) {
         <div className="flex items-center gap-8">
            <div className="flex items-center gap-6">
               <div className="flex items-center gap-1.5 font-bold px-3 py-1 rounded-full border" style={{ color: THEME_PRIMARY, borderColor: `${THEME_PRIMARY}33`, backgroundColor: `${THEME_PRIMARY}11` }}>
-                <Flame size={16} fill="currentColor" /> {stats.streak || 0}
+                <Flame size={16} fill="currentColor" /> {currentStreak}
               </div>
               <div className="flex items-center gap-1.5 font-bold px-3 py-1 rounded-full border" style={{ color: THEME_PRIMARY, borderColor: `${THEME_PRIMARY}33`, backgroundColor: `${THEME_PRIMARY}11` }}>
                 <Trophy size={16} fill="currentColor" /> {stats.rating || 0}
               </div>
            </div>
            <button 
-            onClick={() => onNavigate(ViewState.ANALYTICS)}
+            onClick={onOpenAnalytics}
             className="flex items-center gap-2 text-xs font-bold hover:text-amber-400 transition-colors"
            >
              <BarChart3 size={16}/> INSIGHTS
@@ -541,7 +588,12 @@ export default function Dashboard({ stats = {}, currentUserId }) {
                     <LayoutGrid size={18} style={{ color: THEME_PRIMARY }} /> 
                     <span style={{ color: THEME_PRIMARY }}>LIVE ARENA</span>
                  </h2>
-                 <button className="text-[10px] font-bold hover:opacity-80 transition-colors uppercase tracking-widest" style={{ color: THEME_PRIMARY }}>Live Leaderboard</button>
+          <Link 
+            href={`/dashboard/ai-prep/liveleaderboard`}
+            className="text-[#F59E0B] text-[10px] font-black uppercase tracking-widest hover:underline cursor-pointer"
+          >
+            LIVE LEADERBOARD
+          </Link>
               </div>
               
               {/* Active Contest Cards */}
@@ -627,312 +679,289 @@ export default function Dashboard({ stats = {}, currentUserId }) {
                               >
                                  {contest.status === 'LIVE' ? 'Enter Arena' : 'Not Started'}
                               </button>
-                              
-                              {contest.status === 'LIVE' && (
-                                <button 
-                                  onClick={() => handleResetAttempt(contest.id)}
-                                  disabled={resettingContest === contest.id}
-                                  className="px-4 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-1 disabled:opacity-50"
-                                >
-                                  {resettingContest === contest.id ? (
-                                    <>
-                                      <div className="w-3 h-3 border-2 border-red-400 border-t-transparent rounded-full animate-spin"></div>
-                                      Resetting...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <RotateCcw size
-                                   ={12}/> Reset
-                                   </>
-                                 )}
-                               </button>
-                             )}
-                           </div>
-                         </div>
-                      </div>
-                    );
-                  })
-                )}
-             </div>
-           </section>
-
-           {/* Previous Contests - Collapsible */}
-           {!loading && (
-             <section className="mt-8">
-               <button 
-                 onClick={() => setShowPreviousContests(!showPreviousContests)}
-                 className="w-full flex items-center justify-between mb-4 px-2 group"
-                 disabled={previousContests.length === 0}
-               >
-                  <h2 className={`text-lg font-black flex items-center gap-2 uppercase tracking-tighter transition-colors ${
-                    previousContests.length === 0 ? 'text-slate-600 cursor-not-allowed' : 'text-slate-400 group-hover:text-slate-300'
-                  }`}>
-                     <CheckCircle size={18}/> PREVIOUS CONTESTS ({previousContests.length})
-                  </h2>
-                  {previousContests.length > 0 && (
-                    showPreviousContests ? (
-                      <ChevronUp size={20} className="text-slate-400 group-hover:text-amber-400 transition-colors" />
-                    ) : (
-                      <ChevronDown size={20} className="text-slate-400 group-hover:text-amber-400 transition-colors" />
-                    )
-                  )}
-               </button>
-               
-               {showPreviousContests && previousContests.length > 0 && (
-                 <>
-                   {/* Search Bar */}
-                   <div className="mb-4 relative">
-                     <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
-                     <input
-                       type="text"
-                       placeholder="Search by name, number, or description..."
-                       value={searchQuery}
-                       onChange={(e) => setSearchQuery(e.target.value)}
-                       className="w-full glass-panel border border-white/5 rounded-2xl pl-12 pr-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500/30 transition-all"
-                       style={{ backgroundColor: 'rgba(15, 23, 42, 0.6)' }}
-                     />
-                   </div>
-
-                   {/* Contest List */}
-                   <div className="space-y-3 max-h-[400px] overflow-y-auto scrollbar-thin pr-2">
-                      {filteredPreviousContests.length === 0 ? (
-                        <div className="glass-panel p-6 rounded-2xl border border-white/5 text-center">
-                          <p className="text-slate-500 text-sm">No contests match your search</p>
-                        </div>
-                      ) : (
-                        filteredPreviousContests.map(contest => {
-
-                          return (
-                            <div key={contest.id} className="glass-panel p-4 rounded-2xl border border-white/5 hover:border-slate-700 transition-all relative">
-                               {/* Not Attempted Overlay - Show only when we know for sure user hasn't attempted */}
-          
-
-                               <div className="flex justify-between items-start gap-4">
-                                 <div className="space-y-1 flex-1">
-                                    {/* Contest Number and Title */}
-                                    <div className="flex items-center gap-2">
-                                      {contest.contest_number && (
-                                        <span className="text-[10px] font-black px-2 py-0.5 rounded bg-slate-800 text-slate-500">
-                                          #{contest.contest_number}
-                                        </span>
-                                      )}
-                                      <h3 className="font-bold text-sm text-slate-300">{contest.title || 'Unnamed Contest'}</h3>
-                                    </div>
-                                    
-                                    {/* Description */}
-                                    {contest.description && (
-                                      <p className="text-[10px] text-slate-500 leading-relaxed line-clamp-1">
-                                        {contest.description}
-                                      </p>
-                                    )}
-                                    
-                                    {/* Contest Stats */}
-                                    <div className="flex items-center gap-3 text-[10px] font-bold text-slate-600 flex-wrap">
-                                       <span className="flex items-center gap-1"><Users size={10}/> {contest.participants?.toLocaleString() || 0}</span>
-                                       <span>Ended {new Date(contest.end_time).toLocaleDateString()}</span>
-                                       {contest.total_questions && <span>{contest.total_questions} Qs</span>}
-                                       {contest.total_marks && <span>{contest.total_marks} Marks</span>}
-                                    </div>
-                                 </div>
-                                 {/* View Analysis & Solutions Buttons */}
-<div className="flex gap-2">
-  <button 
-    onClick={async () => {
-      // Check if user has attempted
-      const { data: attemptData } = await supabase
-        .from('test_attempts')
-        .select('id')
-        .eq('session_id', contest.id)
-        .eq('user_id', currentUserId)
-        .maybeSingle();
-      
-      if (attemptData) {
-        router.push(`/results/${attemptData.id}`);
-      } else {
-        alert('You have not attempted this contest yet!');
-      }
-    }}
-    className="px-4 py-2 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95 flex items-center gap-1.5 shadow-lg"
-    style={{ backgroundColor: THEME_PRIMARY, color: '#0E172A' }}
-  >
-    <Brain size={12}/> Analysis
-  </button>
-  
-  <button 
-    onClick={async () => {
-      // Check if user has attempted
-      const { data: attemptData } = await supabase
-        .from('test_attempts')
-        .select('id')
-        .eq('session_id', contest.id)
-        .eq('user_id', currentUserId)
-        .maybeSingle();
-      
-      if (attemptData) {
-        router.push(`/results/${attemptData.id}/solution`);
-      } else {
-        alert('You have not attempted this contest yet!');
-      }
-    }}
-    className="px-4 py-2 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95 flex items-center gap-1.5 bg-slate-700 text-white shadow-lg hover:bg-slate-600"
-  >
-    <FileText size={12}/> Solutions
-  </button>
-</div>
-    
-                               </div>
                             </div>
-                          );
-                        })
-                      )}
-                   </div>
-                 </>
-               )}
-             </section>
-           )}
-
-           {/* Hyper-Personalized Training */}
-           <section className="relative group mt-8">
-              <div className="absolute inset-0 blur-[60px] rounded-full opacity-0 group-hover:opacity-10 transition-all" style={{ backgroundColor: THEME_PRIMARY }}></div>
-              <div className="glass-panel rounded-[40px] p-8 border border-white/10 relative overflow-hidden bg-gradient-to-br from-amber-950/20 to-slate-900/40">
-                 <Brain className="absolute -right-10 -bottom-10 w-64 h-64 opacity-5 rotate-12" style={{ color: THEME_PRIMARY }} />
-                 <div className="relative z-10">
-                    <h2 className="text-3xl font-black mb-2 text-white">Hyper-Personalized Training</h2>
-                    <p className="text-slate-400 text-sm mb-6 max-w-md font-medium leading-relaxed">
-                      AI-powered analysis identifies your weak areas. Start targeted practice to improve faster.
-                    </p>
-                    
-                    {stats.recommendedStudy && stats.recommendedStudy.length > 0 && (
-                      <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-3">
-                         {stats.recommendedStudy.slice(0, 2).map((item, idx) => (
-                            <a key={idx} href={item.link} className="flex items-center gap-3 p-3 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/10 transition-all">
-                               <div className="p-2 rounded-xl bg-slate-900"><BookOpen size={16} style={{ color: THEME_PRIMARY }}/></div>
-                               <div>
-                                  <div className="text-[10px] font-black uppercase text-slate-500">{item.type}</div>
-                                  <div className="text-xs font-bold text-white truncate w-32">{item.title}</div>
-                               </div>
-                            </a>
-                         ))}
-                      </div>
-                    )}
-
-                    <div className="flex gap-4">
-                    <button 
-  onClick={() => router.push('/dashboard/ai-prep/practice')}
-  className="px-8 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 bg-white text-slate-950"
->
-  Start Fix Drill <ChevronRight size={16}/>
-</button>
-                    </div>
-                 </div>
-              </div>
-           </section>
-         </div>
-
-         {/* Right Column */}
-         <div className="col-span-12 lg:col-span-3 space-y-6">
-            <div className="glass-panel rounded-3xl p-6 border border-white/10">
-               <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                  <Star size={14} style={{ color: THEME_PRIMARY }}/> Global Leaders
-               </div>
-               <div className="space-y-4">
-                  {stats.topPerformers && stats.topPerformers.length > 0 ? (
-                    stats.topPerformers.map((user, idx) => (
-                       <div key={idx} className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 transition-all group">
-                          <div className="flex items-center gap-3">
-                             <span className="text-xs font-black text-slate-500 w-4">{user.rank}.</span>
-                             <div className="w-8 h-8 rounded-full bg-slate-800 border border-white/5 flex items-center justify-center text-[10px] font-bold">
-                                {user.name?.charAt(0) || '?'}
-                             </div>
-                             <span className="text-xs font-bold text-slate-200">{user.name}</span>
                           </div>
-                          <div className="text-[10px] font-black group-hover:text-amber-400 transition-colors" style={{ color: THEME_PRIMARY }}>{user.rating}</div>
                        </div>
-                    ))
-                  ) : (
-                    <p className="text-xs text-slate-600 text-center py-4">No leaderboard data yet</p>
-                  )}
-               </div>
-               <button className="w-full mt-4 py-2 rounded-xl bg-slate-900 border border-white/5 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-white transition-colors">
-                 Full Rankings
-               </button>
-            </div>
+                     );
+                   })
+                 )}
+              </div>
+            </section>
 
-            <div className="glass-panel rounded-3xl p-6">
-               <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">
-                  <BarChart3 size={14}/> Subject Proficiency
-               </div>
-               <div className="space-y-6">
-                  {stats.subjectAnalytics && stats.subjectAnalytics.length > 0 ? (
-                    stats.subjectAnalytics.map(sub => (
-                      <div key={sub.subject} className="space-y-2">
-                         <div className="flex justify-between items-end">
-                            <span className="text-xs font-bold text-slate-200">{sub.subject}</span>
-                            <span className="text-xs font-black" style={{ color: THEME_PRIMARY }}>{sub.proficiency}%</span>
+            {/* Previous Contests - Collapsible */}
+            {!loading && (
+              <section className="mt-8">
+                <button 
+                  onClick={() => setShowPreviousContests(!showPreviousContests)}
+                  className="w-full flex items-center justify-between mb-4 px-2 group"
+                  disabled={previousContests.length === 0}
+                >
+                   <h2 className={`text-lg font-black flex items-center gap-2 uppercase tracking-tighter transition-colors ${
+                     previousContests.length === 0 ? 'text-slate-600 cursor-not-allowed' : 'text-slate-400 group-hover:text-slate-300'
+                   }`}>
+                      <CheckCircle size={18}/> PREVIOUS CONTESTS ({previousContests.length})
+                   </h2>
+                   {previousContests.length > 0 && (
+                     showPreviousContests ? (
+                       <ChevronUp size={20} className="text-slate-400 group-hover:text-amber-400 transition-colors" />
+                     ) : (
+                       <ChevronDown size={20} className="text-slate-400 group-hover:text-amber-400 transition-colors" />
+                     )
+                   )}
+                </button>
+                
+                {showPreviousContests && previousContests.length > 0 && (
+                  <>
+                    {/* Search Bar */}
+                    <div className="mb-4 relative">
+                      <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                      <input
+                        type="text"
+                        placeholder="Search by name, number, or description..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full glass-panel border border-white/5 rounded-2xl pl-12 pr-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500/30 transition-all"
+                        style={{ backgroundColor: 'rgba(15, 23, 42, 0.6)' }}
+                      />
+                    </div>
+
+                    {/* Contest List */}
+                    <div className="space-y-3 max-h-[400px] overflow-y-auto scrollbar-thin pr-2">
+                       {filteredPreviousContests.length === 0 ? (
+                         <div className="glass-panel p-6 rounded-2xl border border-white/5 text-center">
+                           <p className="text-slate-500 text-sm">No contests match your search</p>
                          </div>
-                         <div className="h-1.5 bg-slate-900 rounded-full p-0.5 overflow-hidden">
-                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${sub.proficiency}%`, backgroundColor: THEME_PRIMARY }}></div>
-                         </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-xs text-slate-600 text-center py-4">Start practicing to see your progress</p>
-                  )}
-               </div>
-            </div>
+                       ) : (
+                         filteredPreviousContests.map(contest => {
 
-            <div className="glass-panel rounded-3xl p-6 border-l-2 border-l-red-500/50">
-               <div className="text-[10px] font-black text-red-400/70 uppercase tracking-widest mb-4 flex items-center gap-2">
-                  <Brain size={14}/> High Risk Topics
-               </div>
-               <div className="space-y-3">
-                  {weakTopics.length > 0 ? (
-                    weakTopics.slice(0, 4).map((topic, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-1 rounded-lg hover:bg-white/5 transition-colors group cursor-pointer">
-                         <span className="text-xs text-slate-300 font-medium">{topic.topic}</span>
-                         <div className="text-[10px] font-bold text-red-400 bg-red-400/10 px-2 py-0.5 rounded-full">{topic.accuracy}%</div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-xs text-slate-600 text-center py-4">No weak topics identified yet</p>
-                  )}
-               </div>
-            </div>
-         </div>
-       </div>
-     </div>
+                           return (
+                             <div key={contest.id} className="glass-panel p-4 rounded-2xl border border-white/5 hover:border-slate-700 transition-all relative">
+                                <div className="flex justify-between items-start gap-4">
+                                  <div className="space-y-1 flex-1">
+                                     {/* Contest Number and Title */}
+                                     <div className="flex items-center gap-2">
+                                       {contest.contest_number && (
+                                         <span className="text-[10px] font-black px-2 py-0.5 rounded bg-slate-800 text-slate-500">
+                                           #{contest.contest_number}
+                                         </span>
+                                       )}
+                                       <h3 className="font-bold text-sm text-slate-300">{contest.title || 'Unnamed Contest'}</h3>
+                                     </div>
+                                     
+                                     {/* Description */}
+                                     {contest.description && (
+                                       <p className="text-[10px] text-slate-500 leading-relaxed line-clamp-1">
+                                         {contest.description}
+                                       </p>
+                                     )}
+                                     
+                                     {/* Contest Stats */}
+                                     <div className="flex items-center gap-3 text-[10px] font-bold text-slate-600 flex-wrap">
+                                        <span className="flex items-center gap-1"><Users size={10}/> {contest.participants?.toLocaleString() || 0}</span>
+                                        <span>Ended {new Date(contest.end_time).toLocaleDateString()}</span>
+                                        {contest.total_questions && <span>{contest.total_questions} Qs</span>}
+                                        {contest.total_marks && <span>{contest.total_marks} Marks</span>}
+                                     </div>
+                                  </div>
+                                  
+                                  {/* View Analysis & Solutions Buttons */}
+                                  <div className="flex gap-2">
+                                    <button 
+                                      onClick={async () => {
+                                        // Check if user has attempted
+                                        const { data: attemptData } = await supabase
+                                          .from('test_attempts')
+                                          .select('id')
+                                          .eq('session_id', contest.id)
+                                          .eq('user_id', currentUserId)
+                                          .maybeSingle();
+                                        
+                                        if (attemptData) {
+                                          router.push(`/results/${attemptData.id}`);
+                                        } else {
+                                          alert('You have not attempted this contest yet!');
+                                        }
+                                      }}
+                                      className="px-4 py-2 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95 flex items-center gap-1.5 shadow-lg"
+                                      style={{ backgroundColor: THEME_PRIMARY, color: '#0E172A' }}
+                                    >
+                                      <Brain size={12}/> Analysis
+                                    </button>
+                                    
+                                    <button 
+                                      onClick={async () => {
+                                        // Check if user has attempted
+                                        const { data: attemptData } = await supabase
+                                          .from('test_attempts')
+                                          .select('id')
+                                          .eq('session_id', contest.id)
+                                          .eq('user_id', currentUserId)
+                                          .maybeSingle();
+                                        
+                                        if (attemptData) {
+                                          router.push(`/results/${attemptData.id}/solution`);
+                                        } else {
+                                          alert('You have not attempted this contest yet!');
+                                        }
+                                      }}
+                                      className="px-4 py-2 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95 flex items-center gap-1.5 bg-slate-700 text-white shadow-lg hover:bg-slate-600"
+                                    >
+                                      <FileText size={12}/> Solutions
+                                    </button>
+                                  </div>
+                                </div>
+                             </div>
+                           );
+                         })
+                       )}
+                    </div>
+                  </>
+                )}
+              </section>
+            )}
 
-     <style jsx>{`
-       .glass-panel {
-         background: rgba(15, 23, 42, 0.6);
-         backdrop-filter: blur(20px);
-       }
-       .scrollbar-thin::-webkit-scrollbar {
-         width: 6px;
-       }
-       .scrollbar-thin::-webkit-scrollbar-track {
-         background: rgba(15, 23, 42, 0.5);
-       }
-       .scrollbar-thin::-webkit-scrollbar-thumb {
-         background: rgba(148, 163, 184, 0.3);
-         border-radius: 3px;
-       }
-       .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-         background: rgba(148, 163, 184, 0.5);
-       }
-       .line-clamp-1 {
-         display: -webkit-box;
-         -webkit-line-clamp: 1;
-         -webkit-box-orient: vertical;
-         overflow: hidden;
-       }
-       .line-clamp-2 {
-         display: -webkit-box;
-         -webkit-line-clamp: 2;
-         -webkit-box-orient: vertical;
-         overflow: hidden;
-       }
-     `}</style>
-   </div>
- );
+            {/* Hyper-Personalized Training */}
+            <section className="relative group mt-8">
+               <div className="absolute inset-0 blur-[60px] rounded-full opacity-0 group-hover:opacity-10 transition-all" style={{ backgroundColor: THEME_PRIMARY }}></div>
+               <div className="glass-panel rounded-[40px] p-8 border border-white/10 relative overflow-hidden bg-gradient-to-br from-amber-950/20 to-slate-900/40">
+                  <Brain className="absolute -right-10 -bottom-10 w-64 h-64 opacity-5 rotate-12" style={{ color: THEME_PRIMARY }} />
+                  <div className="relative z-10">
+                     <h2 className="text-3xl font-black mb-2 text-white">Hyper-Personalized Training</h2>
+                     <p className="text-slate-400 text-sm mb-6 max-w-md font-medium leading-relaxed">
+                       AI-powered analysis identifies your weak areas. Start targeted practice to improve faster.
+                     </p>
+                     
+                     {stats.recommendedStudy && stats.recommendedStudy.length > 0 && (
+                       <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {stats.recommendedStudy.slice(0, 2).map((item, idx) => (
+                             <a key={idx} href={item.link} className="flex items-center gap-3 p-3 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/10 transition-all">
+                                <div className="p-2 rounded-xl bg-slate-900"><BookOpen size={16} style={{ color: THEME_PRIMARY }}/></div>
+                                <div>
+                                   <div className="text-[10px] font-black uppercase text-slate-500">{item.type}</div>
+                                   <div className="text-xs font-bold text-white truncate w-32">{item.title}</div>
+                                </div>
+                             </a>
+                          ))}
+                       </div>
+                     )}
+
+                     <div className="flex gap-4">
+                       <button 
+                         onClick={() => router.push('/dashboard/ai-prep/practice')}
+                         className="px-8 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 bg-white text-slate-950"
+                       >
+                         Start Fix Drill <ChevronRight size={16}/>
+                       </button>
+                     </div>
+                  </div>
+               </div>
+            </section>
+          </div>
+
+          {/* Right Column */}
+          <div className="col-span-12 lg:col-span-3 space-y-6">
+             <div className="glass-panel rounded-3xl p-6 border border-white/10">
+                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                   <Star size={14} style={{ color: THEME_PRIMARY }}/> Global Leaders
+                </div>
+                <div className="space-y-4">
+                   {stats.topPerformers && stats.topPerformers.length > 0 ? (
+                     stats.topPerformers.map((user, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 transition-all group">
+                           <div className="flex items-center gap-3">
+                              <span className="text-xs font-black text-slate-500 w-4">{user.rank}.</span>
+                              <div className="w-8 h-8 rounded-full bg-slate-800 border border-white/5 flex items-center justify-center text-[10px] font-bold">
+                                 {user.name?.charAt(0) || '?'}
+                              </div>
+                              <span className="text-xs font-bold text-slate-200">{user.name}</span>
+                           </div>
+                           <div className="text-[10px] font-black group-hover:text-amber-400 transition-colors" style={{ color: THEME_PRIMARY }}>{user.rating}</div>
+                        </div>
+                     ))
+                   ) : (
+                     <p className="text-xs text-slate-600 text-center py-4">No leaderboard data yet</p>
+                   )}
+                </div>
+                <button className="w-full mt-4 py-2 rounded-xl bg-slate-900 border border-white/5 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-white transition-colors">
+                  Full Rankings
+                </button>
+             </div>
+
+             <div className="glass-panel rounded-3xl p-6">
+                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">
+                   <BarChart3 size={14}/> Subject Proficiency
+                </div>
+                <div className="space-y-6">
+                   {stats.subjectAnalytics && stats.subjectAnalytics.length > 0 ? (
+                     stats.subjectAnalytics.map(sub => (
+                       <div key={sub.subject} className="space-y-2">
+                          <div className="flex justify-between items-end">
+                             <span className="text-xs font-bold text-slate-200">{sub.subject}</span>
+                             <span className="text-xs font-black" style={{ color: THEME_PRIMARY }}>{sub.proficiency}%</span>
+                          </div>
+                          <div className="h-1.5 bg-slate-900 rounded-full p-0.5 overflow-hidden">
+                             <div className="h-full rounded-full transition-all duration-500" style={{ width: `${sub.proficiency}%`, backgroundColor: THEME_PRIMARY }}></div>
+                          </div>
+                       </div>
+                     ))
+                   ) : (
+                     <p className="text-xs text-slate-600 text-center py-4">Start practicing to see your progress</p>
+                   )}
+                </div>
+             </div>
+
+             <div className="glass-panel rounded-3xl p-6 border-l-2 border-l-red-500/50">
+                <div className="text-[10px] font-black text-red-400/70 uppercase tracking-widest mb-4 flex items-center gap-2">
+                   <Brain size={14}/> High Risk Topics
+                </div>
+                <div className="space-y-3">
+                   {weakTopics.length > 0 ? (
+                     weakTopics.slice(0, 4).map((topic, idx) => (
+                       <div key={idx} className="flex items-center justify-between p-1 rounded-lg hover:bg-white/5 transition-colors group cursor-pointer">
+                          <span className="text-xs text-slate-300 font-medium">{topic.topic}</span>
+                          <div className="text-[10px] font-bold text-red-400 bg-red-400/10 px-2 py-0.5 rounded-full">{topic.accuracy}%</div>
+                       </div>
+                     ))
+                   ) : (
+                     <p className="text-xs text-slate-600 text-center py-4">No weak topics identified yet</p>
+                   )}
+                </div>
+             </div>
+          </div>
+        </div>
+      </div>
+
+      <style jsx>{`
+        .glass-panel {
+          background: rgba(15, 23, 42, 0.6);
+          backdrop-filter: blur(20px);
+        }
+        .scrollbar-thin::-webkit-scrollbar {
+          width: 6px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+          background: rgba(15, 23, 42, 0.5);
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+          background: rgba(148, 163, 184, 0.3);
+          border-radius: 3px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+          background: rgba(148, 163, 184, 0.5);
+        }
+        .line-clamp-1 {
+          display: -webkit-box;
+          -webkit-line-clamp: 1;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+        .line-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+      `}</style>
+    </div>
+  );
 }

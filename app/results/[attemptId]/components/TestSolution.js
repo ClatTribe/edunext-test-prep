@@ -1023,9 +1023,3 @@ const handleSectionChange = (sectionId) => {
     </div>
   );
 }
-
-
-
-
-
-
