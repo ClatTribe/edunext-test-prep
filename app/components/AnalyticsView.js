@@ -164,28 +164,29 @@ const AnalyticsView = ({ stats, onBack }) => {
           <div className="lg:col-span-4 space-y-6">
              {/* Rating Card */}
              <div className="bg-slate-900/40 p-8 rounded-[40px] border border-white/10 bg-gradient-to-br from-amber-500/5 to-transparent backdrop-blur-sm">
-                <div className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em] mb-4">Current Rating</div>
-                <div className="flex items-end gap-3 mb-6">
-                   <div className="text-6xl font-black leading-none">{stats.rating}</div>
-                   <div className="text-emerald-400 font-bold mb-1 flex items-center">
-                    <TrendingUp size={16}/> +240
-                   </div>
-                </div>
-                <div className="space-y-4 pt-6 border-t border-white/5">
-                   <div className="flex justify-between text-xs font-bold">
-                      <span className="text-slate-500">Global Percentile</span>
-                      <span className="text-white">99.2%</span>
-                   </div>
-                   <div className="flex justify-between text-xs font-bold">
-                      <span className="text-slate-500">Questions Solved</span>
-                      <span className="text-white">2,410</span>
-                   </div>
-                   <div className="flex justify-between text-xs font-bold">
-                      <span className="text-slate-500">Avg Session Time</span>
-                      <span className="text-white">42 mins</span>
-                   </div>
-                </div>
-             </div>
+  <div className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em] mb-4">Current Rating</div>
+  <div className="flex items-end gap-3 mb-6">
+    <div className="text-6xl font-black leading-none">{stats.rating}</div>
+    <div className="text-emerald-400 font-bold mb-1 flex items-center">
+      <TrendingUp size={16} className="mr-1"/> {stats.ratingChange}
+    </div>
+  </div>
+  
+  <div className="space-y-4 pt-6 border-t border-white/5">
+    <div className="flex justify-between text-xs font-bold">
+      <span className="text-slate-500">Global Percentile</span>
+      <span className="text-white">{stats.globalPercentile}%</span>
+    </div>
+    <div className="flex justify-between text-xs font-bold">
+      <span className="text-slate-500">Questions Solved</span>
+      <span className="text-white">{stats.totalSolved}</span>
+    </div>
+    <div className="flex justify-between text-xs font-bold">
+      <span className="text-slate-500">Avg Session Time</span>
+      <span className="text-white">{stats.avgSessionTime}</span>
+    </div>
+  </div>
+</div>
 
              {/* Growth Strategy Card */}
              <div className="bg-slate-900/40 p-6 rounded-3xl border border-white/10 backdrop-blur-sm">

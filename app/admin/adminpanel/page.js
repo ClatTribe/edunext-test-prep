@@ -47,9 +47,6 @@ export default function AdminPanel() {
   const [subjectSuggestions, setSubjectSuggestions] = useState([]);
   const [chapterSuggestions, setChapterSuggestions] = useState([]);
   const [topicSuggestions, setTopicSuggestions] = useState([]);
-  const [newSubject, setNewSubject] = useState('');
-  const [newChapter, setNewChapter] = useState('');
-  const [newTopic, setNewTopic] = useState('');
   const router = useRouter();
 
   const [formData, setFormData] = useState({
@@ -268,6 +265,7 @@ export default function AdminPanel() {
   };
   
   const addSection = () => {
+    const lastOrder = sections.length > 0 ? Math.max(...sections.map(s => s.section_order)) : 0;
     setSections(prevSections => [...prevSections, {
       section_name: '',
       section_order: prevSections.length + 1,
@@ -282,89 +280,114 @@ export default function AdminPanel() {
     });
   };
   
-  const handleContestSubmit = async () => {
-    setError('');
-    setSuccess('');
-    setLoading(true);
-    try {
-      if (!contestFormData.exam_id || !contestFormData.title || !contestFormData.start_time || !contestFormData.end_time) {
-        throw new Error('Please fill all required fields');
-      }
-      if (sections.length === 0 || !sections[0].section_name) {
-        throw new Error('Please add at least one section');
-      }
-  
-      const utcStartTime = convertToUTC(contestFormData.start_time);
-      const utcEndTime = convertToUTC(contestFormData.end_time);
-  
-      if (editingContestId) {
-        const { error: contestError } = await supabase
-          .from('contests')
-          .update({
-            exam_id: contestFormData.exam_id,
-            contest_number: parseInt(contestFormData.contest_number),
-            title: contestFormData.title,
-            description: contestFormData.description,
-            start_time: utcStartTime,
-            end_time: utcEndTime,
-            duration_minutes: parseInt(contestFormData.duration_minutes),
-            total_questions: contestFormData.total_questions,
-            total_marks: contestFormData.total_marks,
-            is_active: contestFormData.is_active
-          })
-          .eq('id', editingContestId);
-        if (contestError) throw contestError;
-  
-        await supabase.from('contest_sections').delete().eq('contest_id', editingContestId);
-        const sectionsToInsert = sections.map(s => ({
-          contest_id: editingContestId,
-          section_name: s.section_name,
-          section_order: s.section_order,
-          time_limit_minutes: s.time_limit_minutes ? parseInt(s.time_limit_minutes) : null
-        }));
-        const { error: sectionsError } = await supabase.from('contest_sections').insert(sectionsToInsert);
-        if (sectionsError) throw sectionsError;
-        setSuccess('Contest updated successfully!');
-        setEditingContestId(null);
-      } else {
-        const { data: contestData, error: contestError } = await supabase
-          .from('contests')
-          .insert({
-            exam_id: contestFormData.exam_id,
-            contest_number: parseInt(contestFormData.contest_number),
-            title: contestFormData.title,
-            description: contestFormData.description,
-            start_time: utcStartTime,
-            end_time: utcEndTime,
-            duration_minutes: parseInt(contestFormData.duration_minutes),
-            total_questions: contestFormData.total_questions,
-            total_marks: contestFormData.total_marks,
-            is_active: contestFormData.is_active
-          })
-          .select()
-          .single();
-        if (contestError) throw contestError;
-  
-        const sectionsToInsert = sections.map(s => ({
-          contest_id: contestData.id,
-          section_name: s.section_name,
-          section_order: s.section_order,
-          time_limit_minutes: s.time_limit_minutes ? parseInt(s.time_limit_minutes) : null
-        }));
-        const { error: sectionsError } = await supabase.from('contest_sections').insert(sectionsToInsert);
-        if (sectionsError) throw sectionsError;
-        setSuccess('Contest created successfully!');
-      }
-      resetContestForm();
-      fetchContests();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+  const handleContestSubmit = async (e) => {
+  if (e) e.preventDefault();
+  setError('');
+  setSuccess('');
+  setLoading(true);
+
+  // 1. Variable ko function ke start mein declare karein
+  let currentContestId = editingContestId;
+  let savedSections = []; 
+
+  try {
+    if (!contestFormData.exam_id || !contestFormData.title) {
+      throw new Error('Please fill required fields');
     }
-  };
+
+    const utcStartTime = convertToUTC(contestFormData.start_time);
+    const utcEndTime = convertToUTC(contestFormData.end_time);
+
+    const contestPayload = {
+      exam_id: contestFormData.exam_id,
+      contest_number: parseInt(contestFormData.contest_number) || 0,
+      title: contestFormData.title,
+      description: contestFormData.description,
+      start_time: utcStartTime,
+      end_time: utcEndTime,
+      duration_minutes: parseInt(contestFormData.duration_minutes) || 0,
+      total_questions: parseInt(contestFormData.total_questions) || 0,
+      total_marks: parseInt(contestFormData.total_marks) || 0,
+      is_active: contestFormData.is_active
+    };
+
+    if (editingContestId) {
+      // UPDATE CASE
+      const { error: contestError } = await supabase
+        .from('contests')
+        .update(contestPayload)
+        .eq('id', editingContestId);
+      
+      if (contestError) throw contestError;
+
+      const sectionsToUpsert = sections.map(s => ({
+        ...(s.id ? { id: s.id } : {}),
+        contest_id: editingContestId,
+        section_name: s.section_name,
+        section_order: parseInt(s.section_order),
+        time_limit_minutes: s.time_limit_minutes ? parseInt(s.time_limit_minutes) : null
+      }));
+
+      const { data: sData, error: sectionsError } = await supabase
+        .from('contest_sections')
+        .upsert(sectionsToUpsert, { onConflict: 'id' })
+        .select();
+
+      if (sectionsError) throw sectionsError;
+      savedSections = sData; // Data yahan save ho raha hai
+      setSuccess('Contest updated successfully!');
+    } else {
+      // INSERT CASE
+      const { data: contestData, error: contestError } = await supabase
+        .from('contests')
+        .insert(contestPayload)
+        .select()
+        .single();
+
+      if (contestError) throw contestError;
+      currentContestId = contestData.id;
+
+      const sectionsToInsert = sections.map(s => ({
+        contest_id: currentContestId,
+        section_name: s.section_name,
+        section_order: parseInt(s.section_order),
+        time_limit_minutes: s.time_limit_minutes ? parseInt(s.time_limit_minutes) : null
+      }));
+
+      const { data: sData, error: sectionsError } = await supabase
+        .from('contest_sections')
+        .insert(sectionsToInsert)
+        .select();
+
+      if (sectionsError) throw sectionsError;
+      savedSections = sData; // Data yahan bhi save ho raha hai
+      setSuccess('Contest created successfully!');
+    }
+
+    // 2. savedSections use karein (ReferenceError nahi aayega)
+    if (savedSections && savedSections.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        exam_id: contestFormData.exam_id,
+        contest_id: currentContestId,
+        contest_section_id: savedSections[0].id
+      }));
+    }
+
+    resetContestForm();
+    fetchContests();
+    if (currentContestId) fetchContestSections(currentContestId);
+
+  } catch (err) {
+    console.error("Submit Error:", err);
+    setError(err.message);
+  } finally {
+    setLoading(false);
+  }
+};
   
   const handleContestEdit = async (contest) => {
+    setEditingContestId(contest.id);
     setContestFormData({
       exam_id: contest.exam_id,
       contest_number: contest.contest_number,
@@ -377,16 +400,25 @@ export default function AdminPanel() {
       total_marks: contest.total_marks,
       is_active: contest.is_active
     });
-    if (contest.contest_sections && contest.contest_sections.length > 0) {
-      setSections(contest.contest_sections.map(s => ({
+
+    // Sections fetch karein taaki unki asli IDs mil sakein
+    const { data: sectionsData,error } = await supabase
+      .from('contest_sections')
+      .select('*')
+      .eq('contest_id', contest.id)
+      .order('section_order');
+
+    if (sectionsData) {
+      setSections(sectionsData.map(s => ({
+        id: s.id, // 🔥 Sabse important: ID zaroori hai update ke liye
         section_name: s.section_name,
         section_order: s.section_order,
         time_limit_minutes: s.time_limit_minutes || ''
       })));
     }
-    setEditingContestId(contest.id);
     setError('');
     setSuccess('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   
   const handleContestDelete = async (id) => {

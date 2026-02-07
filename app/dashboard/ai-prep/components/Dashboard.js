@@ -25,21 +25,85 @@ export default function Dashboard({ stats = {}, currentUserId, onNavigate,onOpen
   const [currentStreak, setCurrentStreak] = useState(0);
   const [latestTestId, setLatestTestId] = useState(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [performanceData, setPerformanceData] = useState({ subjectAnalytics: [] });
+  const [weakTopics, setWeakTopics] = useState([]);
+  const [subjectAnalytics, setSubjectAnalytics] = useState([]);
+  
 
   const statsData = {
-    rating: 2150,
-    subjectAnalytics: [
-      {
-        subject: "Physics",
-        accuracyTrend: [{ date: '1/2', value: 65 }, { date: '2/2', value: 78 }],
-        topics: [{ topic: "Rotational Dynamics", avgTime: 45, accuracy: 48 }]
-      }
-    ]
+    // rating: 2150,
+    // subjectAnalytics: [
+    //   {
+    //     subject: "Physics",
+    //     accuracyTrend: [{ date: '1/2', value: 65 }, { date: '2/2', value: 78 }],
+    //     topics: [{ topic: "Rotational Dynamics", avgTime: 45, accuracy: 48 }]
+    //   }
+    // ]
   };
 
   if (showAnalytics) {
     return <AnalyticsView stats={statsData} onBack={() => setShowAnalytics(false)} />;
   }
+
+  useEffect(() => {
+    async function fetchPerformance() {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('user_responses')
+          .select('subject_name, is_correct, difficulty');
+
+        if (error) throw error;
+        if (!data) return;
+
+        const subjectMap = {};
+        const riskMap = {};
+
+        data.forEach(row => {
+          // Rule: unattempted (null) ko ignore karein
+          if (row.is_correct === null) return; 
+
+          const sub = row.subject_name || 'General';
+          const diff = row.difficulty || 'Medium';
+          const isCorrect = row.is_correct === true;
+
+          // Proficiency logic
+          if (!subjectMap[sub]) subjectMap[sub] = { total: 0, correct: 0 };
+          subjectMap[sub].total++;
+          if (isCorrect) subjectMap[sub].correct++;
+
+          // Risk logic
+          const riskKey = `${sub} (${diff})`;
+          if (!riskMap[riskKey]) riskMap[riskKey] = { total: 0, correct: 0 };
+          riskMap[riskKey].total++;
+          if (isCorrect) riskMap[riskKey].correct++;
+        });
+
+        // 2. Data Mapping
+        const processedAnalytics = Object.keys(subjectMap).map(name => ({
+          subject: name,
+          proficiency: Math.round((subjectMap[name].correct / subjectMap[name].total) * 100)
+        })).sort((a, b) => b.proficiency - a.proficiency);
+
+        const processedRisks = Object.keys(riskMap).map(name => ({
+          topic: name,
+          accuracy: Math.round((riskMap[name].correct / riskMap[name].total) * 100)
+        }))
+        .filter(r => r.accuracy < 60)
+        .sort((a, b) => a.accuracy - b.accuracy);
+
+        // 3. Setting States
+        setSubjectAnalytics(processedAnalytics);
+        setWeakTopics(processedRisks);
+
+      } catch (err) {
+        console.error("Fetch Error:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchPerformance();
+  }, []);
 
   useEffect(() => {
     // ✅ Only call if currentUserId exists
@@ -432,8 +496,6 @@ export default function Dashboard({ stats = {}, currentUserId, onNavigate,onOpen
       setLoading(false);
     }
   };
-
-  const weakTopics = stats.subjectAnalytics?.flatMap(s => s.topics?.filter(t => t.accuracy < 50)) || [];
 
   return (
     <div className="h-screen flex flex-col text-slate-100 overflow-hidden" style={{ backgroundColor: THEME_BG }}>
@@ -887,46 +949,53 @@ export default function Dashboard({ stats = {}, currentUserId, onNavigate,onOpen
                 </button>
              </div>
 
-             <div className="glass-panel rounded-3xl p-6">
-                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">
-                   <BarChart3 size={14}/> Subject Proficiency
+           <div className="glass-panel rounded-3xl p-6 bg-slate-900/40 border border-white/5 shadow-xl">
+        <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">
+          <BarChart3 size={14} /> Subject Proficiency
+        </div>
+        <div className="space-y-6">
+          {/* Ab hum direct subjectAnalytics use kar rahe hain */}
+          {subjectAnalytics.length > 0 ? (
+            subjectAnalytics.map((sub, idx) => (
+              <div key={idx} className="space-y-2">
+                <div className="flex justify-between items-end">
+                  <span className="text-xs font-bold text-slate-200">{sub.subject}</span>
+                  <span className="text-xs font-black text-amber-500">{sub.proficiency}%</span>
                 </div>
-                <div className="space-y-6">
-                   {stats.subjectAnalytics && stats.subjectAnalytics.length > 0 ? (
-                     stats.subjectAnalytics.map(sub => (
-                       <div key={sub.subject} className="space-y-2">
-                          <div className="flex justify-between items-end">
-                             <span className="text-xs font-bold text-slate-200">{sub.subject}</span>
-                             <span className="text-xs font-black" style={{ color: THEME_PRIMARY }}>{sub.proficiency}%</span>
-                          </div>
-                          <div className="h-1.5 bg-slate-900 rounded-full p-0.5 overflow-hidden">
-                             <div className="h-full rounded-full transition-all duration-500" style={{ width: `${sub.proficiency}%`, backgroundColor: THEME_PRIMARY }}></div>
-                          </div>
-                       </div>
-                     ))
-                   ) : (
-                     <p className="text-xs text-slate-600 text-center py-4">Start practicing to see your progress</p>
-                   )}
+                <div className="h-1.5 bg-slate-900 rounded-full p-0.5 overflow-hidden border border-white/5">
+                  <div 
+                    className="h-full rounded-full transition-all duration-1000" 
+                    style={{ width: `${sub.proficiency}%`, backgroundColor: THEME_PRIMARY }}
+                  ></div>
                 </div>
-             </div>
+              </div>
+            ))
+          ) : (
+            <p className="text-xs text-slate-500 text-center py-4">No attempted subjects found.</p>
+          )}
+        </div>
+      </div>
 
-             <div className="glass-panel rounded-3xl p-6 border-l-2 border-l-red-500/50">
-                <div className="text-[10px] font-black text-red-400/70 uppercase tracking-widest mb-4 flex items-center gap-2">
-                   <Brain size={14}/> High Risk Topics
+      {/* High Risk Topics Card */}
+      <div className="glass-panel rounded-3xl p-6 border-l-2 border-l-red-500/50 bg-slate-900/40 border border-white/5">
+        <div className="text-[10px] font-black text-red-400/70 uppercase tracking-widest mb-4 flex items-center gap-2">
+          <Brain size={14} /> High Risk Topics
+        </div>
+        <div className="space-y-3">
+          {weakTopics.length > 0 ? (
+            weakTopics.slice(0, 4).map((topic, idx) => (
+              <div key={idx} className="flex items-center justify-between p-2 rounded-lg hover:bg-white/5">
+                <span className="text-xs text-slate-300 font-medium">{topic.topic}</span>
+                <div className="text-[10px] font-bold text-red-400 bg-red-400/10 px-2 py-0.5 rounded-full border border-red-400/20">
+                  {topic.accuracy}% accuracy
                 </div>
-                <div className="space-y-3">
-                   {weakTopics.length > 0 ? (
-                     weakTopics.slice(0, 4).map((topic, idx) => (
-                       <div key={idx} className="flex items-center justify-between p-1 rounded-lg hover:bg-white/5 transition-colors group cursor-pointer">
-                          <span className="text-xs text-slate-300 font-medium">{topic.topic}</span>
-                          <div className="text-[10px] font-bold text-red-400 bg-red-400/10 px-2 py-0.5 rounded-full">{topic.accuracy}%</div>
-                       </div>
-                     ))
-                   ) : (
-                     <p className="text-xs text-slate-600 text-center py-4">No weak topics identified yet</p>
-                   )}
-                </div>
-             </div>
+              </div>
+            ))
+          ) : (
+            <p className="text-xs text-slate-500 text-center py-4">All good! No high risks detected.</p>
+          )}
+        </div>
+      </div>
           </div>
         </div>
       </div>
