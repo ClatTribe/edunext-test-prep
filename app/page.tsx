@@ -139,7 +139,7 @@
 "use client";
 import React from 'react';
 import { Navbar } from './components/Navbar';
-import { Hero } from './components/Hero';
+// import { Hero } from './components/Hero';
 import { ContestSection } from './components/ContestSection';
 import { JeePercentilePredictor } from './components/JeePercentilePredictor';
 import { Features } from './components/Features';
@@ -152,8 +152,8 @@ const App: React.FC = () => {
     <div className="bg-brand-dark min-h-screen text-white font-sans selection:bg-brand-accent selection:text-brand-dark">
       <Navbar />
       <main>
-        <Hero />
         <JeePercentilePredictor />
+        {/* <Hero /> */}
         <ContestSection />
         <Features />
         <Founders />
