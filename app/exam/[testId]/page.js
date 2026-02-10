@@ -1361,7 +1361,7 @@ useEffect(() => {
               onClick={handleSaveAndNext}
               disabled={isLastQuestionOfLastSection()}
               className="px-3 py-2 text-white rounded font-medium disabled:opacity-50 text-xs"
-              style={{ backgroundColor: '#5B86C5' }}
+              style={{ backgroundColor: '#2F5FA7' }}
             >
               Save & Next
             </button>

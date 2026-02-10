@@ -10,7 +10,7 @@ export default function AdminGuard({ children }) {
     const checkAuth = () => {
       const loggedIn = localStorage.getItem('isLoggedIn');
       if (loggedIn !== 'true') {
-        router.replace('/admin'); // Redirect to login if not authenticated
+        router.replace('/admi'); // Redirect to login if not authenticated
       } else {
         setStatus('authorized');
       }

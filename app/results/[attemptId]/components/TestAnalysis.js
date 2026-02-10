@@ -1794,13 +1794,13 @@ if (question.question_type === 'numerical') {
                 <div className="bg-white border-b border-gray-300 flex items-center px-3 py-0.5">
                   <button
                     onClick={() => setActiveTab('performance')}
-                    className="bg-[#5B86C5] text-white px-3 py-1 text-xs font-medium hover:bg-[#4a75b4] flex items-center gap-2"
+                    className="bg-[#ee0303] text-white px-3 py-1 text-xs font-medium hover:bg-[#4a75b4] flex items-center gap-2"
                     style={{ borderRadius: '4px 4px 0 0' }}
                   >
-                    <Home size={14} />
+                    <ArrowLeft size={14} />
                     Back
                   </button>
-                  <div className="bg-[#5B86C5] text-white px-3 py-1 text-xs font-medium ml-2" style={{ borderRadius: '4px 4px 0 0' }}>
+                  <div className="bg-[#35ae4d] text-white px-3 py-1 text-xs font-medium ml-2" style={{ borderRadius: '4px 4px 0 0' }}>
                     Test Solutions
                   </div>
                 </div>
@@ -2084,17 +2084,14 @@ if (question.question_type === 'numerical') {
               <div className="overflow-y-auto border-l h-full" style={{ width: '300px', backgroundColor: '#EAF6FA', borderLeftColor: '#D0D0D0' }}>
                 <div style={{ padding: '12px', fontFamily: '"Segoe UI", Arial, Helvetica, sans-serif' }}>
                   
-                  <div className="p-3 bg-white rounded-lg shadow-sm" style={{ border: '1px solid #E0E0E0', marginBottom: '16px' }}>
-                    <div style={{ fontSize: '11px', color: '#666666', marginBottom: '4px' }}>
-                      Test Solutions
-                    </div>
+                  {/* <div className="p-3 bg-white rounded-lg shadow-sm" style={{ border: '1px solid #E0E0E0', marginBottom: '16px' }}>
                     <div 
                       onClick={() => setActiveTab('performance')}
                       style={{ fontSize: '11px', color: '#1E88E5', cursor: 'pointer' }}
                     >
                       View Analysis
                     </div>
-                  </div>
+                  </div> */}
 
                   {/* Legend */}
                   <div className="mb-4">

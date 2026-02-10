@@ -2,14 +2,14 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '../../lib/supabase'; // Adjust this path to where your supabase.js file is
+import { supabase } from '../../lib/supabase'; 
 
 export default function LoginPage() {
   const router = useRouter();
   
   const [formData, setFormData] = useState({
-    username: '',
-    password: ''
+    username: '', // Ismein 'ritwik' enter karein
+    password: ''  // Ismein 'edu@123' enter karein
   });
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -25,53 +25,58 @@ export default function LoginPage() {
     setErrorMsg('');
 
     try {
-      // Query your 'adminlogin' table
-      const { data, error } = await supabase
+      // 1. Pehle Supabase Auth se login karein (Sahi tareeka)
+      // Hum username ko email format mein convert kar rahe hain: ritwik@admin.com
+      const email = `${formData.username}@admin.com`;
+
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: formData.password,
+      });
+
+      if (authError) throw authError;
+
+      // 2. Auth success hone ke baad, manual table 'admin_profiles' mein verify karein
+      const { data: profile, error: profileError } = await supabase
         .from('admin_profiles')
         .select('*')
-        .eq('username', formData.username)
-        .eq('password_hash', formData.password)
+        .eq('id', authData.user.id) // Hum ID se check kar rahe hain, password_hash se nahi
         .single();
 
-      if (error || !data) {
-        throw new Error('Invalid username or password');
+      if (profileError || !profile) {
+        // Agar auth sahi hai par manual table mein entry nahi hai
+        await supabase.auth.signOut();
+        throw new Error('You are not authorized in admin_profiles table');
       }
 
       // Success!
-      console.log('Access Granted:', data);
+      console.log('Access Granted:', profile);
       localStorage.setItem('isLoggedIn', 'true');
-      localStorage.setItem('adminUser', data.username);
-      router.push('/admin/adminpanel'); // Redirect to your admin dashboard
+      localStorage.setItem('adminUser', profile.username);
+      router.push('/admin/adminpanel'); 
       
     } catch (err) {
-      setErrorMsg(err.message);
+      // User-friendly error message
+      setErrorMsg(err.message === 'Invalid login credentials' 
+        ? 'Invalid username or password' 
+        : err.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-   
     <main className="flex min-h-screen flex-col items-center justify-center bg-[#0a0e1a] px-6">
       <div 
         style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)' }}
         className="w-full max-w-[420px] bg-[#111827] p-10 rounded-3xl text-center border border-gray-800/50"
       >
-        
-        {/* Header Section */}
         <header className="mb-8">
-          <h1 className="text-5xl font-bold text-[#ff8c00] tracking-tight mb-2">
-            EduNext
-          </h1>
-          <p className="text-gray-400 text-sm">
-            Admin Portal Access
-          </p>
+          <h1 className="text-5xl font-bold text-[#ff8c00] tracking-tight mb-2">EduNext</h1>
+          <p className="text-gray-400 text-sm">Admin Portal Access</p>
         </header>
 
-        {/* Login Form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          
-          {/* Error Alert */}
           {errorMsg && (
             <div className="p-3 text-xs bg-red-500/10 border border-red-500/50 text-red-500 rounded-lg">
               {errorMsg}
@@ -110,9 +115,7 @@ export default function LoginPage() {
         </form>
 
         <footer className="mt-8">
-            <p className="text-gray-600 text-xs uppercase tracking-widest font-semibold">
-                Secured by EduNext
-            </p>
+            <p className="text-gray-600 text-xs uppercase tracking-widest font-semibold">Secured by EduNext</p>
         </footer>
       </div>
     </main>

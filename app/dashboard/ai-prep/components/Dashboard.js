@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Flame, Trophy, Target, Zap, LayoutGrid, ChevronRight, BarChart3, Clock, Users, CalendarDays, Brain, Star, TrendingUp, BookOpen, AlertCircle, CheckCircle, Search, ChevronDown, ChevronUp, Eye, FileText } from 'lucide-react';
+import { Flame, Trophy, Target, Zap, LayoutGrid, ChevronRight, BarChart3, Clock, Users, CalendarDays, Brain, Star, TrendingUp, BookOpen, AlertCircle, CheckCircle, Search, ChevronDown, ChevronUp, Eye, FileText,LogOut } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -29,7 +29,7 @@ export default function Dashboard({ stats = {}, currentUserId, onNavigate,onOpen
   const [weakTopics, setWeakTopics] = useState([]);
   const [subjectAnalytics, setSubjectAnalytics] = useState([]);
   
-
+  
   const statsData = {
     // rating: 2150,
     // subjectAnalytics: [
@@ -44,14 +44,57 @@ export default function Dashboard({ stats = {}, currentUserId, onNavigate,onOpen
   if (showAnalytics) {
     return <AnalyticsView stats={statsData} onBack={() => setShowAnalytics(false)} />;
   }
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      // User ko login page par redirect karein
+      router.push('/'); 
+    } catch (error) {
+      console.error('Error logging out:', error.message);
+      alert('Logout failed!');
+    }
+  };
+
+useEffect(() => {
+  const syncUser = async () => {
+    if (!currentUserId) return;
+
+    // Check karo kya user public table mein hai?
+    const { data } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', currentUserId)
+      .maybeSingle();
+
+    if (!data) {
+      // Agar nahi hai, toh use insert kar do (Pichli error ka permanent fix)
+      const { data: authUser } = await supabase.auth.getUser();
+      if (authUser.user) {
+        await supabase.from('users').insert({
+          id: currentUserId,
+          email: authUser.user.email,
+          username: authUser.user.email.split('@')[0],
+          full_name: authUser.user.email.split('@')[0]
+        });
+      }
+    }
+  };
+
+  syncUser();
+  fetchContests();
+  calculateStreak();
+}, [currentUserId]);
 
   useEffect(() => {
     async function fetchPerformance() {
       try {
+        if (!currentUserId) return;
         setLoading(true);
         const { data, error } = await supabase
           .from('user_responses')
-          .select('subject_name, is_correct, difficulty');
+          .select('subject_name, is_correct, difficulty')
 
         if (error) throw error;
         if (!data) return;
@@ -102,15 +145,22 @@ export default function Dashboard({ stats = {}, currentUserId, onNavigate,onOpen
         setLoading(false);
       }
     }
+    if (currentUserId) {
     fetchPerformance();
-  }, []);
+    fetchContests();
+    calculateStreak();
+  }
+  }, [currentUserId]);
 
   useEffect(() => {
     // ✅ Only call if currentUserId exists
+    console.log("🔍 Current User ID Status:", currentUserId);
     if (currentUserId) {
       calculateStreak();
+      fetchContests();
+      // fetchPerformance();
     }
-    fetchContests();
+    // fetchContests();
     
     const interval = setInterval(() => {
       setCurrentTime(new Date());
@@ -118,143 +168,157 @@ export default function Dashboard({ stats = {}, currentUserId, onNavigate,onOpen
     return () => clearInterval(interval);
   }, [currentUserId]); // ✅ Add currentUserId as dependency
 
-  useEffect(() => {
-    async function fetchLatestTest(currentTestId) {
-      // test_attempts se sabse latest test_id nikalna
-      const { data } = await supabase
-        .from('test_attempts')
-        .select(`
-      obtained_marks,
-      test_id,
-      users (
-        username,
-        avatar_url
-      )
-    `).eq('test_id', currentTestId) // Particular test ka data
-    .order('obtained_marks', { ascending: false }); // High score upar
+  // useEffect(() => {
+  //   async function fetchLatestTest(currentTestId) {
+  //     // test_attempts se sabse latest test_id nikalna
+  //     const { data } = await supabase
+  //       .from('test_attempts')
+  //       .select(`
+  //     obtained_marks,
+  //     test_id,
+  //     users (
+  //       username,
+  //       avatar_url
+  //     )
+  //   `).eq('test_id', currentTestId) // Particular test ka data
+  //   .order('obtained_marks', { ascending: false }); // High score upar
 
-      if (data) {
-        console.log(data);
-      }
-    }
-    fetchLatestTest();
-  }, []);
+  //     if (data) {
+  //       console.log(data);
+  //     }
+  //   }
+  //   fetchLatestTest();
+  // }, []);
 
 
   
   const calculateStreak = async () => {
-    try {
-      // ✅ Check if user ID exists
-      if (!currentUserId) {
-        console.log('⚠️ No user ID found, skipping streak calculation');
-        setCurrentStreak(0);
-        return;
+  try {
+    if (!currentUserId) {
+      setCurrentStreak(0);
+      return;
+    }
+
+    // 1. Saare contests fetch karein (Newest first)
+    const { data: allContests, error: contestsError } = await supabase
+      .from('contests')
+      .select('id, start_time, end_time')
+      .order('start_time', { ascending: false });
+
+    if (contestsError) throw contestsError;
+
+    // 2. User ke attempts fetch karein
+    const { data: userAttempts, error: attemptsError } = await supabase
+      .from('test_attempts')
+      .select('session_id')
+      .eq('user_id', currentUserId);
+
+    if (attemptsError) throw attemptsError;
+
+    const attemptedContestIds = new Set(userAttempts?.map(a => a.session_id) || []);
+    let streak = 0;
+    const now = new Date();
+
+    // 3. Streak Calculation Loop
+    for (let i = 0; i < allContests.length; i++) {
+      const contest = allContests[i];
+      const startTime = new Date(contest.start_time);
+      const endTime = new Date(contest.end_time);
+
+      // A. Skip Future Contests: Jo abhi shuru hi nahi huye
+      if (startTime > now) continue;
+
+      // B. Handle LIVE Contests: 
+      // Agar contest chal raha hai aur user ne nahi kiya, toh streak mat todo (abhi time hai)
+      // Agar user ne kar liya hai, toh streak mein count kar lo
+      if (now >= startTime && now <= endTime) {
+        if (attemptedContestIds.has(contest.id)) {
+          streak++;
+        }
+        continue; // Streak break nahi hogi agar live contest miss ho raha hai
       }
-  
-      // Get all contests sorted by start time
-      const { data: allContests, error: contestsError } = await supabase
-        .from('contests')
-        .select('id, start_time, end_time')
-        .order('start_time', { ascending: false });
-  
-      if (contestsError) throw contestsError;
-  
-      // Get user's attempts - ✅ REMOVED is_view_only filter temporarily
-      const { data: userAttempts, error: attemptsError } = await supabase
-        .from('test_attempts')
-        .select('session_id, created_at')
-        .eq('user_id', currentUserId);
-        // ❌ Removed: .eq('is_view_only', false);
-  
-      if (attemptsError) {
-        console.error('❌ Supabase error:', attemptsError);
-        throw attemptsError;
-      }
-  
-      const attemptedContestIds = new Set(userAttempts?.map(a => a.session_id) || []);
-      
-      let streak = 0;
-      const now = new Date();
-  
-      // Check contests from most recent to oldest
-      for (const contest of allContests) {
-        const endTime = new Date(contest.end_time);
-        
-        // Skip future contests
-        if (endTime > now) continue;
-  
-        // If user attempted this contest, increment streak
+
+      // C. Handle Ended Contests:
+      if (endTime < now) {
         if (attemptedContestIds.has(contest.id)) {
           streak++;
         } else {
-          // User missed this contest, streak breaks
-          break;
+          // YAHAN STREAK TOOTEGI: User ne purana khatam hua contest miss kiya
+          break; 
         }
       }
-  
-      console.log('🔥 Streak calculated:', streak);
-      setCurrentStreak(streak);
-      
-    } catch (error) {
-      console.error('Error calculating streak:', error);
-      setCurrentStreak(0);
     }
-  };
+
+    setCurrentStreak(streak);
+    console.log('🔥 Active Streak:', streak);
+
+  } catch (error) {
+    console.error('Error calculating streak:', error);
+    setCurrentStreak(0);
+  }
+};
 
   const fetchContests = async () => {
-    try {
-      setLoading(true);
-      
-      const { data: sessionsData, error: sessionsError } = await supabase
-        .from('contests')
-        .select('id, title, contest_number, description, duration_minutes, total_marks, total_questions, start_time, end_time')
-        .order('start_time', { ascending: true });
+  try {
+    setLoading(true);
+    
+    // 1. Contests hamesha fetch karein (bale hi user login na ho)
+    const { data: sessionsData, error: sessionsError } = await supabase
+      .from('contests')
+      .select('id, title, contest_number, description, duration_minutes, total_marks, total_questions, start_time, end_time')
+      .order('start_time', { ascending: true });
 
-      if (sessionsError) throw sessionsError;
+    if (sessionsError) throw sessionsError;
 
-      if (!sessionsData || sessionsData.length === 0) {
-        setContests([]);
-        setPreviousContests([]);
-        setLoading(false);
-        return;
-      }
+    // 2. Agar currentUserId hai, tabhi 'hasAttempted' check karein
+    const contestsWithCounts = await Promise.all(
+      sessionsData.map(async (session) => {
+        let hasAttempted = false;
 
-      const contestsWithCounts = await Promise.all(
-        sessionsData.map(async (session) => {
-          const { count } = await supabase
+        if (currentUserId) {
+          const { data: userAttempt } = await supabase
             .from('test_attempts')
-            .select('*', { count: 'exact', head: true })
-            .eq('session_id', session.id);
+            .select('id')
+            .eq('session_id', session.id)
+            .eq('user_id', currentUserId)
+            .eq('is_view_only', false)
+            .maybeSingle();
+          
+          hasAttempted = !!userAttempt;
+        }
 
-          const now = new Date();
-          const startTime = new Date(session.start_time);
-          const endTime = new Date(session.end_time);
+        const { count } = await supabase
+          .from('test_attempts')
+          .select('*', { count: 'exact', head: true })
+          .eq('session_id', session.id);
 
-          return {
-            ...session,
-            startTime,
-            endTime,
-            participants: count || 0,
-            status: now >= startTime && now <= endTime ? 'LIVE' : 
-                    now < startTime ? 'UPCOMING' : 'ENDED'
-          };
-        })
-      );
+        const now = new Date();
+        const startTime = new Date(session.start_time);
+        const endTime = new Date(session.end_time);
 
-      const active = contestsWithCounts.filter(c => c.status !== 'ENDED');
-      const ended = contestsWithCounts.filter(c => c.status === 'ENDED').reverse();
+        return {
+          ...session,
+          startTime,
+          endTime,
+          participants: count || 0,
+          hasAttempted: hasAttempted, 
+          status: now >= startTime && now <= endTime ? 'LIVE' : 
+                  now < startTime ? 'UPCOMING' : 'ENDED'
+        };
+      })
+    );
 
-      setContests(active);
-      setPreviousContests(ended);
-      
-    } catch (error) {
-      console.error('Error fetching contests:', error);
-      setContests([]);
-      setPreviousContests([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const active = contestsWithCounts.filter(c => c.status !== 'ENDED');
+    const ended = contestsWithCounts.filter(c => c.status === 'ENDED').reverse();
+
+    setContests(active);
+    setPreviousContests(ended);
+  } catch (error) {
+    console.error('Error fetching contests:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const getTimeRemaining = (targetTime) => {
     const diff = targetTime - currentTime;
@@ -573,12 +637,12 @@ export default function Dashboard({ stats = {}, currentUserId, onNavigate,onOpen
 
         <div className="flex items-center gap-8">
            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-1.5 font-bold px-3 py-1 rounded-full border" style={{ color: THEME_PRIMARY, borderColor: `${THEME_PRIMARY}33`, backgroundColor: `${THEME_PRIMARY}11` }}>
+              {/* <div className="flex items-center gap-1.5 font-bold px-3 py-1 rounded-full border" style={{ color: THEME_PRIMARY, borderColor: `${THEME_PRIMARY}33`, backgroundColor: `${THEME_PRIMARY}11` }}>
                 <Flame size={16} fill="currentColor" /> {currentStreak}
               </div>
               <div className="flex items-center gap-1.5 font-bold px-3 py-1 rounded-full border" style={{ color: THEME_PRIMARY, borderColor: `${THEME_PRIMARY}33`, backgroundColor: `${THEME_PRIMARY}11` }}>
                 <Trophy size={16} fill="currentColor" /> {stats.rating || 0}
-              </div>
+              </div> */}
            </div>
            <button 
             onClick={onOpenAnalytics}
@@ -586,7 +650,15 @@ export default function Dashboard({ stats = {}, currentUserId, onNavigate,onOpen
            >
              <BarChart3 size={16}/> INSIGHTS
            </button>
-           <div className="w-9 h-9 rounded-full border-2 shadow-lg cursor-pointer" style={{ borderColor: `${THEME_PRIMARY}55`, background: `linear-gradient(45deg, ${THEME_PRIMARY}, #d97706)` }}></div>
+           <div className="flex items-center gap-3 ml-2 border-l border-white/10 pl-6">
+      <button 
+        onClick={handleLogout}
+        className="p-2 hover:bg-red-500/10 text-slate-400 hover:text-red-500 rounded-xl transition-all group"
+        title="Logout"
+      >
+        <LogOut size={20} />
+      </button>
+   </div>
         </div>
       </nav>
 
@@ -596,7 +668,7 @@ export default function Dashboard({ stats = {}, currentUserId, onNavigate,onOpen
           
           {/* Left: Progression */}
           <div className="col-span-12 lg:col-span-3 space-y-6">
-            <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-2xl relative overflow-hidden group">
+            {/* <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-2xl relative overflow-hidden group">
                <div className="absolute top-0 right-0 w-24 h-24 blur-3xl rounded-full -mr-10 -mt-10 group-hover:bg-amber-500/10 transition-all" style={{ backgroundColor: `${THEME_PRIMARY}11` }}></div>
                <div className="text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2" style={{ color: THEME_PRIMARY }}>
                  <Target size={12}/> Current Status
@@ -617,9 +689,35 @@ export default function Dashboard({ stats = {}, currentUserId, onNavigate,onOpen
                   <span>PROMOTION AT 100%</span>
                   <span style={{ color: THEME_PRIMARY }}>{stats.leagueProgress || 0}%</span>
                </div>
-            </div>
+            </div> */}
 
-            <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-xl">
+            <div className="glass-panel rounded-3xl p-6 border border-white/10 relative overflow-hidden group mt-4">
+  {/* Background Decoration */}
+  <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:opacity-20 transition-opacity">
+    <Flame size={100} fill={THEME_PRIMARY} />
+  </div>
+
+  <div className="relative z-10">
+    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Current Streak</p>
+    <div className="flex items-baseline gap-2">
+      <span className="text-4xl font-black text-white">{currentStreak}</span>
+      <span className="text-sm font-bold text-amber-500">DAYS</span>
+    </div>
+    
+    {/* Progress bar to next milestone (Optional) */}
+    <div className="mt-4 h-1.5 bg-white/5 rounded-full overflow-hidden">
+      <div 
+        className="h-full bg-gradient-to-r from-amber-600 to-amber-400" 
+        style={{ width: `${(currentStreak % 7) * 14.28}%` }} 
+      />
+    </div>
+    <p className="text-[9px] text-slate-500 mt-2 font-medium uppercase tracking-tighter">
+      {7 - (currentStreak % 7)} days until next milestone
+    </p>
+  </div>
+</div>
+
+            {/* <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-xl">
                <div className="flex justify-between items-center mb-4">
                   <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                      <TrendingUp size={12}/> Preparedness
@@ -632,15 +730,17 @@ export default function Dashboard({ stats = {}, currentUserId, onNavigate,onOpen
                   ))}
                </div>
                <p className="text-[10px] text-slate-500 leading-tight">Your readiness for the upcoming JEE Main shift based on simulated accuracy and time-pressure metrics.</p>
-            </div>
+            </div> */}
 
-            <div className="glass-panel rounded-3xl p-6">
+            {/* <div className="glass-panel rounded-3xl p-6">
                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
                  <CalendarDays size={12}/> Activity Heatmap
                </div>
                {renderHeatmap()}
-            </div>
+            </div> */}
           </div>
+
+          
 
           {/* Center: Arena */}
           <div className="col-span-12 lg:col-span-6 space-y-6">
@@ -650,12 +750,12 @@ export default function Dashboard({ stats = {}, currentUserId, onNavigate,onOpen
                     <LayoutGrid size={18} style={{ color: THEME_PRIMARY }} /> 
                     <span style={{ color: THEME_PRIMARY }}>LIVE ARENA</span>
                  </h2>
-          <Link 
+          {/* <Link 
             href={`/dashboard/ai-prep/liveleaderboard`}
             className="text-[#F59E0B] text-[10px] font-black uppercase tracking-widest hover:underline cursor-pointer"
           >
             LIVE LEADERBOARD
-          </Link>
+          </Link> */}
               </div>
               
               {/* Active Contest Cards */}
@@ -694,9 +794,19 @@ export default function Dashboard({ stats = {}, currentUserId, onNavigate,onOpen
                                   )}
                                   <h3 className="font-bold text-lg transition-colors" style={{ color: THEME_PRIMARY }}>{contest.title || 'Unnamed Contest'}</h3>
                                   {contest.status === 'LIVE' ? (
+                                    <div className="flex items-center gap-2">
                                     <span className="bg-red-500/10 text-red-500 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-500/20 flex items-center gap-1">
                                       <div className="w-1 h-1 bg-red-500 rounded-full animate-ping"></div> LIVE
                                     </span>
+                                    {contest.id && (
+                                    <Link 
+                                     href={`/dashboard/ai-prep/liveleaderboard/${contest.id}`}
+                                                className="flex items-center gap-1 text-amber-500 text-[9px] font-black hover:bg-amber-500/10 transition-all bg-amber-500/5 px-2 py-0.5 rounded border border-amber-500/10"
+                                    >
+                                      <Trophy size={10} /> VIEW RANKINGS
+                                    </Link>
+                                  )}
+                                            </div>
                                   ) : (
                                     <span className="bg-blue-500/10 text-blue-500 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-500/20">
                                       STARTS IN
@@ -730,17 +840,36 @@ export default function Dashboard({ stats = {}, currentUserId, onNavigate,onOpen
                             
                             <div className="flex flex-col gap-2">
                               <button 
-                                onClick={() => contest.status === 'LIVE' && handleEnterArena(contest)}
-                                className={`px-6 py-2.5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg ${
-                                  contest.status === 'LIVE' 
-                                    ? 'text-white hover:brightness-110 active:scale-95 cursor-pointer' 
-                                    : 'bg-slate-800 text-slate-400 cursor-not-allowed'
-                                }`}
-                                style={{ backgroundColor: contest.status === 'LIVE' ? THEME_PRIMARY : undefined }}
-                                disabled={contest.status !== 'LIVE'}
-                              >
-                                 {contest.status === 'LIVE' ? 'Enter Arena' : 'Not Started'}
-                              </button>
+  // 1. Agar hasAttempted true hai toh function fire hi mat hone do
+  onClick={() => {
+    if (contest.status === 'LIVE' && !contest.hasAttempted) {
+      handleEnterArena(contest);
+    }
+  }}
+  
+  // 2. Class switch karein visuals ke liye
+  className={`px-6 py-2.5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg ${
+    (contest.status === 'LIVE' && !contest.hasAttempted)
+      ? 'text-white hover:brightness-110 active:scale-95 cursor-pointer' 
+      : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-60'
+  }`}
+
+  // 3. Style logic
+  style={{ 
+    backgroundColor: (contest.status === 'LIVE' && !contest.hasAttempted) ? THEME_PRIMARY : '#1e293b' 
+  }}
+
+  // 4. Sabse important: HTML Disabled Attribute
+  disabled={contest.status !== 'LIVE' || contest.hasAttempted === true}
+>
+  {contest.hasAttempted ? (
+    <span className="flex items-center gap-1">
+      <CheckCircle size={14} /> Submitted
+    </span>
+  ) : (
+    contest.status === 'LIVE' ? 'Enter Arena' : 'Not Started'
+  )}
+</button>
                             </div>
                           </div>
                        </div>
@@ -808,6 +937,12 @@ export default function Dashboard({ stats = {}, currentUserId, onNavigate,onOpen
                                          </span>
                                        )}
                                        <h3 className="font-bold text-sm text-slate-300">{contest.title || 'Unnamed Contest'}</h3>
+                                       <Link 
+                                        href={`/dashboard/ai-prep/liveleaderboard/${contest.id}`}
+                                         className="text-[9px] font-bold text-slate-500 hover:text-amber-500 flex items-center gap-1 ml-2 transition-colors"
+                                          >
+                                         <Trophy size={10} /> Final Standings
+                                       </Link>
                                      </div>
                                      
                                      {/* Description */}
@@ -922,7 +1057,7 @@ export default function Dashboard({ stats = {}, currentUserId, onNavigate,onOpen
 
           {/* Right Column */}
           <div className="col-span-12 lg:col-span-3 space-y-6">
-             <div className="glass-panel rounded-3xl p-6 border border-white/10">
+             {/* <div className="glass-panel rounded-3xl p-6 border border-white/10">
                 <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
                    <Star size={14} style={{ color: THEME_PRIMARY }}/> Global Leaders
                 </div>
@@ -947,7 +1082,7 @@ export default function Dashboard({ stats = {}, currentUserId, onNavigate,onOpen
                 <button className="w-full mt-4 py-2 rounded-xl bg-slate-900 border border-white/5 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-white transition-colors">
                   Full Rankings
                 </button>
-             </div>
+             </div> */}
 
            <div className="glass-panel rounded-3xl p-6 bg-slate-900/40 border border-white/5 shadow-xl">
         <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">

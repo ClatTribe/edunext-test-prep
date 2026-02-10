@@ -10,6 +10,24 @@ export default function AIPrepPage() {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState(null);
+
+  useEffect(() => {
+    // 1. Current session nikalna
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    // 2. Auth state change ko listen karna (Login/Logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Jab tak session load ho raha ho
+ 
 
   useEffect(() => {
     fetchUserAnalytics();
@@ -105,6 +123,8 @@ export default function AIPrepPage() {
 
   if (loading) return <div className="min-h-screen bg-[#0E172A] flex items-center justify-center text-white">Loading your performance data...</div>;
   
+ if (!session) return <div>Loading Session...</div>;
+
   if (showAnalytics && stats) {
     return (
       <AnalyticsView 
@@ -116,7 +136,7 @@ export default function AIPrepPage() {
 
   return (
     <div className="relative">
-      <Dashboard onOpenAnalytics={() => setShowAnalytics(true)}/> 
+      <Dashboard currentUserId={session.user.id} onOpenAnalytics={() => setShowAnalytics(true)}/> 
     </div>
   );
 }

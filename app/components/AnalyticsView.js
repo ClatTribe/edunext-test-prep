@@ -173,10 +173,10 @@ const AnalyticsView = ({ stats, onBack }) => {
   </div>
   
   <div className="space-y-4 pt-6 border-t border-white/5">
-    <div className="flex justify-between text-xs font-bold">
+    {/* <div className="flex justify-between text-xs font-bold">
       <span className="text-slate-500">Global Percentile</span>
       <span className="text-white">{stats.globalPercentile}%</span>
-    </div>
+    </div> */}
     <div className="flex justify-between text-xs font-bold">
       <span className="text-slate-500">Questions Solved</span>
       <span className="text-white">{stats.totalSolved}</span>
