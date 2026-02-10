@@ -4,13 +4,11 @@ import { Award, Star, TrendingUp } from 'lucide-react';
 export const Founders: React.FC = () => {
   const accentColor = '#F59E0B';
   const primaryBg = '#050818';
-  const secondaryBg = '#0F172B';
-  const borderColor = 'rgba(245, 158, 11, 0.15)';
 
   return (
     <section id="founders" className="py-24 border-t relative overflow-hidden" style={{ backgroundColor: primaryBg, borderColor: 'rgba(255, 255, 255, 0.05)' }}>
-        {/* Background texture */}
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10"></div>
+      {/* Background texture */}
+      <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10"></div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
@@ -29,12 +27,18 @@ export const Founders: React.FC = () => {
                onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)'}
              >
                 <div className="flex items-center space-x-5 mb-6">
+                  {/* Container size remains the same circle */}
                   <div className="w-20 h-20 rounded-full bg-gray-800 overflow-hidden shadow-xl" style={{ border: `2px solid ${accentColor}` }}>
-                     {/* Placeholder for Founder Image */}
-                     <img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=200&h=200" alt="Founder" className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500" />
+                     <img 
+                        src="https://res.cloudinary.com/daetdadtt/image/upload/v1770707953/WhatsApp_Image_2025-12-26_at_14.49.25_1_ucqpct_qxh7yi.jpg" 
+                        alt="Ashutosh Mishra" 
+                        className="w-full h-full object-cover scale-110 grayscale hover:grayscale-0 transition-all duration-500" 
+                        /* 10% value shifts the photo down to prevent the head from being cut off */
+                        style={{ objectPosition: 'center 10%' }}
+                     />
                   </div>
                   <div>
-                    <h4 className="text-2xl font-bold text-white">Pratham Mittal</h4>
+                    <h4 className="text-2xl font-bold text-white">Ashutosh Mishra</h4>
                     <p className="text-sm font-bold uppercase tracking-wider" style={{ color: accentColor }}>Chief Mentor</p>
                   </div>
                 </div>
