@@ -94,10 +94,16 @@ useEffect(() => {
         setLoading(true);
         const { data, error } = await supabase
           .from('user_responses')
-          .select('subject_name, is_correct, difficulty')
+          .select('subject_name, is_correct, difficulty,user_id')
+          .eq('user_id',currentUserId)
 
         if (error) throw error;
-        if (!data) return;
+        if (!data || data.length === 0) {
+        setSubjectAnalytics([]); // Khali array set karein
+        setWeakTopics([]);       // Khali array set karein
+        setLoading(false);       // Loading band karein
+        return;                  // Function se bahar nikal jayein
+}
 
         const subjectMap = {};
         const riskMap = {};
@@ -145,7 +151,7 @@ useEffect(() => {
         setLoading(false);
       }
     }
-    if (currentUserId) {
+    if (currentUserId && currentUserId !== "undefined") {
     fetchPerformance();
     fetchContests();
     calculateStreak();

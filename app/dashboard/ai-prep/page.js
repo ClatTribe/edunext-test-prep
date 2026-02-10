@@ -57,7 +57,6 @@ export default function AIPrepPage() {
         .from('user_responses')
         .select('*')
         .eq('user_id', session?.user?.id);
-
       if (error) throw error;
 
       if (data) {

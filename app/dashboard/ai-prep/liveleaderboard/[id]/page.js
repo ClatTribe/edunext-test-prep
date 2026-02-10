@@ -53,10 +53,13 @@ export default function LeaderboardPage() {
             // Username logic: Agar public.users table mein data hai toh wo, warna Warrior name
             const displayName = att.users?.username || att.users?.full_name || `Warrior_${userId.substring(0, 4)}`;
 
+            const existingAttempt = uniqueUsers[userId];
+
             // Best Attempt logic: Ek user ka sirf highest score dikhana hai
-            if (!uniqueUsers[userId] || uniqueUsers[userId].obtained_marks < att.obtained_marks) {
+            if (!existingAttempt || Number(existingAttempt.obtained_marks) < Number(att.obtained_marks)) {
               uniqueUsers[userId] = {
                 ...att,
+                obtained_marks: Number(att.obtained_marks),
                 username: displayName 
               };
             }

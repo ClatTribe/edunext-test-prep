@@ -98,6 +98,7 @@ useEffect(() => {
   const fetchUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
+      console.log("Current User ID Found:", user.id)
       setCurrentUserId(user.id);
     }
   };
@@ -150,6 +151,12 @@ useEffect(() => {
   }, [currentQuestionIndex, isInitialized]);
 
   const initializeTest = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+    // router.push('/');
+    return;
+   }
+  setCurrentUserId(user.id);
     try {
       setLoading(true);
 
@@ -312,7 +319,7 @@ useEffect(() => {
       setSessionId(session.id);
 
       if (sortedQuestions.length > 0 && isMountedRef.current) {
-        await createNewVisitEntry(sortedQuestions[0].id);
+        await createNewVisitEntry(sortedQuestions[0].id,user.id);
       }
 
       if (isMountedRef.current) {
@@ -328,7 +335,7 @@ useEffect(() => {
     }
   };
 
-  const createNewVisitEntry = async (questionId) => {
+  const createNewVisitEntry = async (questionId,currentUserId) => {
     if (!sessionId || !isMountedRef.current) return;
 
     try {
@@ -375,7 +382,8 @@ useEffect(() => {
           difficulty: question.difficulty,
           question_type: question.question_type,
           positive_marks: question.positive_marks,
-          negative_marks: question.negative_marks
+          negative_marks: question.negative_marks,
+          user_id: currentUserId
         });
     } catch (error) {
       console.error('Error creating visit entry:', error);
@@ -506,6 +514,7 @@ useEffect(() => {
           .update(responseData)
           .eq('id', latestResponse.id);
       } else {
+        responseData.user_id = currentUserId;
         responseData.entry_timestamp = new Date().toISOString();
         responseData.first_visit_at = new Date().toISOString();
         await supabase
@@ -594,6 +603,7 @@ useEffect(() => {
           .update(responseData)
           .eq('id', latestResponse.id);
       } else {
+        responseData.user_id = currentUserId;
         responseData.entry_timestamp = new Date().toISOString();
         responseData.first_visit_at = new Date().toISOString();
         await supabase
@@ -648,7 +658,7 @@ useEffect(() => {
       const nextIndex = currentQuestionIndex + 1;
       setCurrentQuestionIndex(nextIndex);
       setVisited(prev => ({ ...prev, [questions[nextIndex].id]: true }));
-      await createNewVisitEntry(questions[nextIndex].id);
+      await createNewVisitEntry(questions[nextIndex].id,currentUserId);
     }
   };
 
@@ -754,6 +764,7 @@ useEffect(() => {
         await supabase
           .from('user_responses')
           .insert({
+            user_id: currentUserId,
             session_id: sessionId,
             question_id: currentQuestion.id,
             visit_number: 1,
@@ -819,7 +830,7 @@ useEffect(() => {
     setCurrentQuestionIndex(globalIndex);
     setVisited(prev => ({ ...prev, [questions[globalIndex].id]: true }));
     
-    await createNewVisitEntry(questions[globalIndex].id);
+    await createNewVisitEntry(questions[globalIndex].id,currentUserId);
   };
 
   const handleSectionChange = async (sectionIndex) => {
