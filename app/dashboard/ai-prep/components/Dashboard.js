@@ -633,12 +633,21 @@ useEffect(() => {
       {/* Top Navbar */}
       <nav className="h-16 border-b border-white/5 glass-panel px-6 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center rotate-3 shadow-lg" style={{ backgroundColor: THEME_PRIMARY }}>
+          {/* <div className="w-8 h-8 rounded-lg flex items-center justify-center rotate-3 shadow-lg" style={{ backgroundColor: THEME_PRIMARY }}>
              <Zap size={20} className="text-white fill-white" />
+          </div> */}
+          <div 
+            className="flex items-center cursor-pointer group" 
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          >
+            <a href="/" className="flex items-center">
+              <img
+                src="/whitelogo.svg"
+                alt="EduNext Logo"
+                className="h-10 md:h-11 w-auto object-contain transition-opacity duration-300 group-hover:opacity-80"
+              />
+            </a>
           </div>
-          <span className="text-xl font-black tracking-tight text-white uppercase italic">
-            EDUNEXT
-          </span>
         </div>
 
         <div className="flex items-center gap-8">
