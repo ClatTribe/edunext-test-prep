@@ -1,6 +1,8 @@
+'use client'
 import React, { useEffect, useState } from 'react';
 import { Button } from './Button';
 import { ArrowRight, Trophy, Play, Users } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 export const Hero: React.FC = () => {
   const accentColor = '#F59E0B';
@@ -9,6 +11,7 @@ export const Hero: React.FC = () => {
   const borderColor = 'rgba(245, 158, 11, 0.15)';
 
   const [activeUsers, setActiveUsers] = useState(1240);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     // Simulate live user count fluctuation
@@ -17,6 +20,92 @@ export const Hero: React.FC = () => {
     }, 2000);
     return () => clearInterval(interval);
   }, []);
+
+useEffect(() => {
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+      const user = session.user;
+      console.log("User detected:", user);
+      console.log("User metadata:", user.user_metadata);
+      
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .upsert({
+            id: user.id,
+            instance_id: user.app_metadata.provider === 'google' ? user.id : null,
+            username: user.user_metadata.full_name?.replace(/\s+/g, '_').toLowerCase() || user.email?.split('@')[0],
+            full_name: user.user_metadata.full_name || user.user_metadata.name || '',
+            aud: user.aud || 'authenticated',
+            phone_number: user.phone || null,
+            role: user.role || 'user',
+            email: user.email,
+            encrypted_password: null, // OAuth users don't have passwords
+            password_hash: null,
+            email_confirmed_at: user.email_confirmed_at || new Date().toISOString(),
+            exam_id: null, // Set this later when user selects exam
+            created_at: user.created_at || new Date().toISOString(),
+            invited_at: null,
+            confirmation_token: null,
+            updated_at: new Date().toISOString(),
+            confirmation_sent_at: null,
+            last_login: new Date().toISOString(),
+            is_active: true,
+            recovery_token: null,
+            recovery_sent_at: null,
+            email_change_token_new: null,
+            email_change: null,
+            email_change_sent_at: null,
+            last_sign_in_at: user.last_sign_in_at || new Date().toISOString(),
+            raw_app_meta_data: user.app_metadata || {},
+            raw_user_meta_data: user.user_metadata || {},
+            is_super_admin: false,
+            phone: user.phone || null,
+            phone_confirmed_at: user.phone_confirmed_at || null,
+            phone_change: null,
+            phone_change_token: null,
+            phone_change_sent_at: null,
+            confirmed_at: user.confirmed_at || new Date().toISOString(),
+            email_change_token_current: null,
+            email_change_confirm_status: 0,
+            banned_until: null,
+            reauthentication_token: null,
+            reauthentication_sent_at: null,
+            is_sso_user: user.app_metadata.provider === 'google',
+            deleted_at: null,
+            is_anonymous: false,
+          }, {
+            onConflict: 'id'
+          });
+
+        if (error) {
+          console.error('Error syncing profile:', error);
+        } else {
+          console.log("Profile synced successfully!", data);
+        }
+      } catch (err) {
+        console.error('Catch error:', err);
+      }
+    }
+  });
+
+  return () => subscription.unsubscribe();
+}, []);
+
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/dashboard/ai-prep`,
+      },
+    });
+    if (error) {
+      alert(error.message);
+      setLoading(false);
+    }
+  };
 
   return (
     <section className="relative min-h-screen flex items-center pt-24 pb-12 overflow-hidden" style={{ backgroundColor: primaryBg }}>
@@ -141,10 +230,14 @@ export const Hero: React.FC = () => {
                    <p className="text-gray-400 text-sm mb-6">Track your progress and compete with the best.</p>
                    
                    <button 
-                     className="w-full bg-white text-gray-900 font-bold py-3.5 px-4 rounded-lg flex items-center justify-center space-x-3 transition-all shadow-lg active:scale-[0.98]"
+                     onClick={handleGoogleLogin}
+                     disabled={loading}
+                     className="w-full bg-white text-gray-900 font-bold py-3.5 px-4 rounded-lg flex items-center justify-center space-x-3 transition-all shadow-lg active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                      onMouseEnter={(e) => {
-                       e.currentTarget.style.backgroundColor = '#f3f4f6';
-                       e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(255, 255, 255, 0.1)';
+                       if (!loading) {
+                         e.currentTarget.style.backgroundColor = '#f3f4f6';
+                         e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(255, 255, 255, 0.1)';
+                       }
                      }}
                      onMouseLeave={(e) => {
                        e.currentTarget.style.backgroundColor = 'white';
@@ -157,7 +250,7 @@ export const Hero: React.FC = () => {
                         <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
                         <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                       </svg>
-                      <span>Sign in with Google</span>
+                      <span>{loading ? 'Signing in...' : 'Sign in with Google'}</span>
                    </button>
                    
                    <div className="mt-4 flex items-center justify-center space-x-2 text-xs text-gray-500">
