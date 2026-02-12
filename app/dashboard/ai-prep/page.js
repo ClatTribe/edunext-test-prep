@@ -71,72 +71,88 @@ export default function AIPrepPage() {
   };
 
   const transformData = (rawData) => {
-    if (!rawData || rawData.length === 0) return null;
+  if (!rawData || rawData.length === 0) return null;
 
-    // 1. Sidebar Stats Calculations
-    const totalSolved = rawData.length;
+  // --- NAYA LOGIC: Improvement Calculation ---
+  const last10 = rawData.slice(-10);
+  const prev10 = rawData.slice(-20, -10);
+  
+  const getAcc = (arr) => arr.length ? (arr.filter(r => r.is_correct === true || r.is_correct === 'True').length / arr.length) * 100 : 0;
+  
+  const currentAcc = getAcc(last10);
+  const previousAcc = getAcc(prev10);
+  // Agar pichla data nahi hai toh 0 dikhayega, varna difference
+  const improvementValue = prev10.length > 0 ? (currentAcc - previousAcc).toFixed(1) : "0.0";
+
+  // 1. Sidebar Stats Calculations
+  const totalSolved = rawData.length;
+  
+  // Avg Session Time calculation
+  const sessions = [...new Set(rawData.map(r => r.session_id))];
+  const totalTimeSpent = rawData.reduce((acc, curr) => acc + (curr.time_spent_seconds || 0), 0);
+  const avgSessionMinutes = sessions.length > 0 
+    ? Math.round((totalTimeSpent / sessions.length) / 60) 
+    : 0;
+
+  // Rating & Rating Change
+  const totalMarks = rawData.reduce((acc, curr) => acc + (curr.marks_obtained || 0), 0);
+  const lastMarks = rawData.slice(-10).reduce((acc, curr) => acc + (curr.marks_obtained || 0), 0);
+  const ratingChange = lastMarks >= 0 ? `+${Math.round(lastMarks * 5)}` : `${Math.round(lastMarks * 5)}`;
+
+  // --- NAYA LOGIC: Percentile based on rating ---
+  const currentRating = 1200 + Math.round(totalMarks);
+  const calculatedPercentile = Math.min(99.9, (currentRating / 25)).toFixed(1);
+  // const calculatedPercentile = Math.min(99.9, (currentRating / 25)).toFixed(1);
+
+  // 2. Subject Analytics Grouping
+  const subjects = [...new Set(rawData.map(item => item.subject_name))];
+  const subjectAnalytics = subjects.map(subName => {
+    const subRows = rawData.filter(r => r.subject_name === subName);
     
-    // Avg Session Time calculation
-    const sessions = [...new Set(rawData.map(r => r.session_id))];
-    const totalTimeSpent = rawData.reduce((acc, curr) => acc + (curr.time_spent_seconds || 0), 0);
-    const avgSessionMinutes = sessions.length > 0 
-      ? Math.round((totalTimeSpent / sessions.length) / 60) 
-      : 0;
+    // Accuracy Trend
+    const trendMap = {};
+    subRows.forEach(row => {
+      const date = new Date(row.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      if (!trendMap[date]) trendMap[date] = { correct: 0, total: 0 };
+      trendMap[date].total++;
+      if (row.is_correct === true || row.is_correct === 'True') trendMap[date].correct++;
+    });
 
-    // Rating & Rating Change (+240 logic based on last performance)
-    const totalMarks = rawData.reduce((acc, curr) => acc + (curr.marks_obtained || 0), 0);
-    const lastMarks = rawData.slice(-10).reduce((acc, curr) => acc + (curr.marks_obtained || 0), 0);
-    const ratingChange = lastMarks >= 0 ? `+${Math.round(lastMarks * 5)}` : `${Math.round(lastMarks * 5)}`;
+    const accuracyTrend = Object.keys(trendMap).map(date => ({
+      date,
+      value: Math.round((trendMap[date].correct / trendMap[date].total) * 100)
+    }));
 
-    // 2. Subject Analytics Grouping
-    const subjects = [...new Set(rawData.map(item => item.subject_name))];
-    const subjectAnalytics = subjects.map(subName => {
-      const subRows = rawData.filter(r => r.subject_name === subName);
-      
-      // Accuracy Trend
-      const trendMap = {};
-      subRows.forEach(row => {
-        const date = new Date(row.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        if (!trendMap[date]) trendMap[date] = { correct: 0, total: 0 };
-        trendMap[date].total++;
-        if (row.is_correct === true || row.is_correct === 'True') trendMap[date].correct++;
-      });
-
-      const accuracyTrend = Object.keys(trendMap).map(date => ({
-        date,
-        value: Math.round((trendMap[date].correct / trendMap[date].total) * 100)
-      }));
-
-      // Topics Difficulty Grid
-      const difficulties = [...new Set(subRows.map(r => r.difficulty))];
-      const topics = difficulties.map(diff => {
-        const diffRows = subRows.filter(r => r.difficulty === diff);
-        const correct = diffRows.filter(r => (r.is_correct === true || r.is_correct === 'True')).length;
-        return {
-          topic: diff ? diff.charAt(0).toUpperCase() + diff.slice(1) : "General",
-          avgTime: Math.round(diffRows.reduce((acc, curr) => acc + curr.time_spent_seconds, 0) / diffRows.length),
-          accuracy: Math.round((correct / diffRows.length) * 100)
-        };
-      });
-
+    // Topics Difficulty Grid
+    const difficulties = [...new Set(subRows.map(r => r.difficulty))];
+    const topics = difficulties.map(diff => {
+      const diffRows = subRows.filter(r => r.difficulty === diff);
+      const correct = diffRows.filter(r => (r.is_correct === true || r.is_correct === 'True')).length;
       return {
-        subject: subName,
-        accuracyTrend,
-        topics
+        topic: diff ? diff.charAt(0).toUpperCase() + diff.slice(1) : "General",
+        avgTime: Math.round(diffRows.reduce((acc, curr) => acc + curr.time_spent_seconds, 0) / diffRows.length),
+        accuracy: Math.round((correct / diffRows.length) * 100)
       };
     });
 
-    // Final Object returned to AnalyticsView
     return {
-      rating: 1200 + Math.round(totalMarks),
-      ratingChange: ratingChange,
-      globalPercentile: "99.2",
-      totalSolved: totalSolved.toLocaleString(),
-      avgSessionTime: `${avgSessionMinutes} mins`,
-      subjectAnalytics
+      subject: subName,
+      accuracyTrend,
+      topics
     };
-  };
+  });
 
+  // Final Object returned to AnalyticsView
+  return {
+    rating: currentRating,
+    ratingChange: ratingChange,
+    globalPercentile: calculatedPercentile, // Ab ye dynamic hai
+    improvement: improvementValue,        // Ye key add ki hai jo undefined fix karegi
+    totalSolved: totalSolved.toLocaleString(),
+    avgSessionTime: `${avgSessionMinutes} mins`,
+    subjectAnalytics
+  };
+};
   // Show loading only while checking auth/fetching data
   if (loading || !session) {
     return (

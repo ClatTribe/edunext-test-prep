@@ -28,7 +28,7 @@ export default function Dashboard({ stats = {}, currentUserId, onNavigate,onOpen
   const [performanceData, setPerformanceData] = useState({ subjectAnalytics: [] });
   const [weakTopics, setWeakTopics] = useState([]);
   const [subjectAnalytics, setSubjectAnalytics] = useState([]);
-  
+  const [showModal, setShowModal] = useState(false);
   
   const statsData = {
     // rating: 2150,
@@ -640,7 +640,7 @@ useEffect(() => {
             className="flex items-center cursor-pointer group" 
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           >
-            <a href="/" className="flex items-center">
+            <a href="/dashboard/ai-prep#" className="flex items-center">
               <img
                 src="/whitelogo.svg"
                 alt="EduNext Logo"
@@ -956,7 +956,7 @@ useEffect(() => {
                                         href={`/dashboard/ai-prep/liveleaderboard/${contest.id}`}
                                          className="text-[9px] font-bold text-slate-500 hover:text-amber-500 flex items-center gap-1 ml-2 transition-colors"
                                           >
-                                         <Trophy size={10} /> Final Standings
+                                         <Trophy size={10} /> View Ranking
                                        </Link>
                                      </div>
                                      
@@ -989,9 +989,10 @@ useEffect(() => {
                                           .maybeSingle();
                                         
                                         if (attemptData) {
+                                          console.log("ID",attemptData.id)
                                           router.push(`/results/${attemptData.id}`);
                                         } else {
-                                          alert('You have not attempted this contest yet!');
+                                          setShowModal(true);
                                         }
                                       }}
                                       className="px-4 py-2 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95 flex items-center gap-1.5 shadow-lg"
@@ -1013,7 +1014,7 @@ useEffect(() => {
                                         if (attemptData) {
                                           router.push(`/results/${attemptData.id}/solution`);
                                         } else {
-                                          alert('You have not attempted this contest yet!');
+                                          setShowModal(true);
                                         }
                                       }}
                                       className="px-4 py-2 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95 flex items-center gap-1.5 bg-slate-700 text-white shadow-lg hover:bg-slate-600"
@@ -1149,6 +1150,23 @@ useEffect(() => {
           </div>
         </div>
       </div>
+       {showModal && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="bg-[#1E293B] border border-gray-700 p-6 rounded-xl max-w-sm w-full shadow-2xl">
+      <h3 className="text-white font-bold text-lg mb-2">Notice</h3>
+      <p className="text-gray-400 text-sm mb-6">
+        You have not attempted this contest yet!
+      </p>
+      <button 
+        onClick={() => setShowModal(false)}
+        className="w-full py-2 rounded-lg font-bold text-xs uppercase tracking-wider"
+        style={{ backgroundColor: THEME_PRIMARY, color: '#0E172A' }}
+      >
+        Got it
+      </button>
+    </div>
+  </div>
+)}
 
       <style jsx>{`
         .glass-panel {
@@ -1182,5 +1200,6 @@ useEffect(() => {
         }
       `}</style>
     </div>
+    
   );
 }

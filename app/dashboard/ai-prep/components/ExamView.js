@@ -180,7 +180,25 @@ export default function ExamView({ questions, examType, onSubmit, onExit }) {
           <div className="bg-[#f1f3f5] border-t border-slate-300 p-4 flex justify-between items-center shrink-0">
              <div className="flex gap-2">
                 <button onClick={() => { if (!marked.includes(currentQ.id)) setMarked([...marked, currentQ.id]); handleNext(); }} className="nta-nav-btn rounded">Mark for Review & Next</button>
-                <button onClick={() => { setResponses(prev => { const n = {...prev}; delete n[currentQ.id]; return n; }); setMarked(prev => prev.filter(id => id !== currentQ.id)); }} className="nta-nav-btn rounded">Clear Response</button>
+                {/* Clear Response Button */}
+                <button 
+                  onClick={() => { 
+                    // Step 1: Response mitao
+                    setResponses(prev => {
+                      const newRes = { ...prev };
+                      delete newRes[currentQ.id];
+                      return newRes;
+                    });
+                    
+                    // Step 2: Marked for Review se hatao
+                    setMarked(prev => prev.filter(id => id !== currentQ.id));
+                    
+                    // Note: 'visited' status rahega, isliye color Red (Not Answered) ho jayega
+                  }} 
+                  className="nta-nav-btn rounded"
+                >
+                  Clear Response
+                </button>
              </div>
              <div className="flex gap-2">
                 <button onClick={handlePrev} disabled={currentIdx === 0} className="nta-nav-btn rounded flex items-center gap-1"><ChevronLeft size={14}/> Previous</button>

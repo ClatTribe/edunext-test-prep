@@ -108,7 +108,7 @@ useEffect(() => {
   };
 
   return (
-    <section className="relative min-h-screen flex items-center pt-24 pb-12 overflow-hidden" style={{ backgroundColor: primaryBg }}>
+    <section id="waitlist" className="relative min-h-screen flex items-center pt-24 pb-12 overflow-hidden" style={{ backgroundColor: primaryBg }}>
       {/* Background Effects */}
       <div className="absolute inset-0 z-0">
         <div className="absolute top-0 right-0 w-[800px] h-[800px] rounded-full blur-[120px] pointer-events-none mix-blend-screen animate-pulse-slow" style={{ backgroundColor: 'rgba(245, 158, 11, 0.05)' }}></div>

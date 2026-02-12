@@ -101,192 +101,150 @@ export default function TestSolution({ attemptId, onNavigateToAnalysis }) {
     }
   }, [attemptId]);
 
-  const fetchSolutionData = async () => {
-    try {
-      setLoading(true);
-  
-      // Get test attempt
-      const { data: attemptData, error: attemptError } = await supabase
-        .from('test_attempts')
-        .select('*')
-        .eq('id', attemptId)
-        .single();
-  
-      if (attemptError) throw attemptError;
-  
-      const sessionId = attemptData.session_id;
-      const testId = attemptData.test_id;
-  
-      // ✅ Determine if this is a contest or practice test
-      let isContest = false;
-      const { data: contestCheck } = await supabase
-        .from('contests')
-        .select('id')
-        .eq('id', testId)
-        .maybeSingle();
-      
-      if (contestCheck) {
-        isContest = true;
+ const fetchSolutionData = async () => {
+  try {
+    setLoading(true);
+
+    // 1. Attempt details fetch karein
+    const { data: attemptData, error: attemptError } = await supabase
+      .from('test_attempts')
+      .select('*')
+      .eq('id', attemptId)
+      .single();
+
+    if (attemptError) throw attemptError;
+
+    const sessionId = attemptData.session_id;
+    const testId = attemptData.test_id;
+
+    // 2. Contest check
+    let isContest = false;
+    const { data: contestCheck } = await supabase
+      .from('contests')
+      .select('id')
+      .eq('id', testId)
+      .maybeSingle();
+    
+    if (contestCheck) isContest = true;
+
+    // 3. Sabse important: Pehle saare questions fetch karein (Test ID se)
+    const { data: questionsData, error: qError } = await supabase
+      .from('questions')
+      .select('*')
+      .eq('contest_id', testId)
+      .order('question_number', { ascending: true });
+
+    if (qError) throw qError;
+
+    // 4. User Responses fetch karein Analysis ke liye
+    const { data: responses, error: respError } = await supabase
+      .from('user_responses')
+      .select('*')
+      .eq('session_id', sessionId);
+
+    if (respError) throw respError;
+
+    // Latest response map banayein (Bande ki personal details ke liye)
+    const latestResponses = {};
+    responses?.forEach(r => {
+      const qId = r.question_id;
+      if (!latestResponses[qId] || r.visit_number > latestResponses[qId].visit_number) {
+        latestResponses[qId] = r;
       }
-  
-      // Fetch user responses
-      const { data: responses, error: respError } = await supabase
-        .from('user_responses')
+    });
+
+    // 5. Options aur Solutions fetch karein
+    const allQuestionIds = questionsData.map(q => q.id);
+    const { data: optionsData } = await supabase
+      .from('question_options')
+      .select('*')
+      .in('question_id', allQuestionIds)
+      .order('option_order', { ascending: true });
+
+    const { data: solutionsData } = await supabase
+      .from('question_solutions')
+      .select('*')
+      .in('question_id', allQuestionIds);
+
+    // 6. Section Logic (Jaisa aapke original code mein tha)
+    const sectionsExist = questionsData.some(q => q.contest_section_id);
+    let finalSections = [];
+    let sortedQuestions = questionsData;
+    let sectionsMap = {};
+
+    if (sectionsExist && isContest) {
+      const sectionIds = [...new Set(questionsData.map(q => q.contest_section_id).filter(Boolean))];
+      const { data: sectionsDataFetch } = await supabase
+        .from('contest_sections')
         .select('*')
-        .eq('session_id', sessionId);
-  
-      if (respError) throw respError;
-  
-      // Get latest response for each question
-      const latestResponses = {};
-      responses?.forEach(r => {
-        const qId = r.question_id;
-        if (!latestResponses[qId] || r.visit_number > latestResponses[qId].visit_number) {
-          latestResponses[qId] = r;
-        }
+        .in('id', sectionIds)
+        .order('section_order', { ascending: true });
+
+      sectionsDataFetch?.forEach(section => {
+        sectionsMap[section.id] = { ...section, questions: [] };
       });
-  
-      const finalResponses = Object.values(latestResponses);
-      const questionIds = finalResponses.map(r => r.question_id);
-  
-      if (questionIds.length === 0) {
-        setQuestions([]);
-        setSections([]);
-        setLoading(false);
-        return;
-      }
-  
-      // Fetch questions
-      const { data: questionsData, error: qError } = await supabase
-        .from('questions')
-        .select('*')
-        .in('id', questionIds);
-  
-      if (qError) throw qError;
-  
-      // Fetch options
-      const { data: optionsData } = await supabase
-        .from('question_options')
-        .select('*')
-        .in('question_id', questionsData.map(q => q.id))
-        .order('option_order', { ascending: true });
-  
-      // Fetch solutions
-      const { data: solutionsData } = await supabase
-        .from('question_solutions')
-        .select('*')
-        .in('question_id', questionsData.map(q => q.id));
-  
-      // ✅ EXACT SAME LOGIC AS EXAMINTERFACE
-      const sectionsExist = questionsData.some(q => q.contest_section_id);
-  
-      let finalSections = [];
-      let sortedQuestions = questionsData;
-      let sectionsMap = {};
-  
-      if (sectionsExist && isContest) {
-        // ✅ Contest mode: Fetch from contest_sections
-        const sectionIds = [...new Set(questionsData.map(q => q.contest_section_id).filter(Boolean))];
-        
-        const { data: sectionsData } = await supabase
-          .from('contest_sections')
-          .select('*')
-          .in('id', sectionIds)
-          .order('section_order', { ascending: true });
-  
-        sectionsData?.forEach(section => {
-          sectionsMap[section.id] = {
-            ...section,
-            questions: []
+
+      const sectionsArray = Object.values(sectionsMap).sort((a, b) => 
+        (a.section_order || 0) - (b.section_order || 0)
+      );
+
+      sortedQuestions = [];
+      sectionsArray.forEach(section => {
+        const sectionQuestions = questionsData.filter(q => q.contest_section_id === section.id);
+        sortedQuestions.push(...sectionQuestions);
+      });
+      finalSections = sectionsArray;
+    } else {
+      const subjectMap = {};
+      questionsData.forEach((q) => {
+        const subject = q.subject || 'Other';
+        if (!subjectMap[subject]) {
+          subjectMap[subject] = {
+            id: subject, section_name: subject,
+            section_order: Object.keys(subjectMap).length, questions: []
           };
-        });
-  
-        const sectionsArray = Object.values(sectionsMap).sort((a, b) => 
-          (a.section_order || 0) - (b.section_order || 0)
-        );
-  
-        sortedQuestions = [];
-        sectionsArray.forEach(section => {
-          const sectionQuestions = questionsData.filter(q => q.contest_section_id === section.id);
-          sortedQuestions.push(...sectionQuestions);
-        });
-  
-        finalSections = sectionsArray;
-  
-      } else {
-        // ✅ Practice mode: Create subject-based sections
-        const subjectMap = {};
-        
-        questionsData.forEach((q) => {
-          const subject = q.subject || 'Other';
-          
-          if (!subjectMap[subject]) {
-            subjectMap[subject] = {
-              id: subject,
-              section_name: subject,
-              section_order: Object.keys(subjectMap).length,
-              questions: []
-            };
-          }
-          
-          subjectMap[subject].questions.push(q);
-        });
-        
-        const subjectSections = Object.values(subjectMap).sort((a, b) => 
-          a.section_order - b.section_order
-        );
-        
-        sortedQuestions = [];
-        subjectSections.forEach(section => {
-          sortedQuestions.push(...section.questions);
-        });
-        
-        finalSections = subjectSections;
-      }
-  
-      // ✅ Enrich questions with data
-      const enrichedQuestions = sortedQuestions.map(q => {
-        const userResponse = latestResponses[q.id];
-        const questionOptions = (optionsData || []).filter(opt => opt.question_id === q.id);
-        const questionSolution = (solutionsData || []).find(sol => sol.question_id === q.id);
-  
-        return {
-          ...q,
-          options: questionOptions,
-          solution: questionSolution || null,
-          userResponse: userResponse || null,
-          isCorrect: userResponse?.is_correct || false,
-          isAttempted: userResponse?.is_answered || false,
-          isMarked: userResponse?.is_marked_for_review || false,
-          timeSpent: userResponse?.time_spent_seconds || 0,
-          selectedOptionId: userResponse?.selected_option_id,
-          selectedOptionLabel: userResponse?.selected_option_label,
-          numericalAnswer: userResponse?.numerical_answer || '',
-          marksObtained: userResponse?.marks_obtained || 0
-        };
+        }
+        subjectMap[subject].questions.push(q);
       });
-  
-      console.log('=== TEST SOLUTION DEBUG ===');
-      console.log('Is Contest:', isContest);
-      console.log('Sections Exist:', sectionsExist);
-      console.log('Sections Created:', finalSections);
-      console.log('Sample Question:', enrichedQuestions[0]);
-      console.log('===========================');
-  
-      setSections(finalSections);
-      setQuestions(enrichedQuestions);
-      
-      if (finalSections.length > 0) {
-        setActiveSection('all');
-      }
-  
-      setLoading(false);
-    } catch (error) {
-      console.error('Error:', error);
-      alert('Failed to load solutions: ' + error.message);
-      setLoading(false);
+      const subjectSections = Object.values(subjectMap).sort((a, b) => a.section_order - b.section_order);
+      sortedQuestions = [];
+      subjectSections.forEach(section => { sortedQuestions.push(...section.questions); });
+      finalSections = subjectSections;
     }
-  };
+
+    // 7. Enriched Questions (Question + Personal Analysis Data)
+    const enrichedQuestions = sortedQuestions.map(q => {
+      const userResponse = latestResponses[q.id]; // Personal Data
+      const questionOptions = (optionsData || []).filter(opt => opt.question_id === q.id);
+      const questionSolution = (solutionsData || []).find(sol => sol.question_id === q.id);
+
+      return {
+        ...q,
+        options: questionOptions,
+        solution: questionSolution || null,
+        userResponse: userResponse || null,
+        isCorrect: userResponse?.is_correct || false,
+        isAttempted: userResponse?.is_answered || false,
+        isMarked: userResponse?.is_marked_for_review || false,
+        timeSpent: userResponse?.time_spent_seconds || 0,
+        selectedOptionId: userResponse?.selected_option_id,
+        selectedOptionLabel: userResponse?.selected_option_label,
+        numericalAnswer: userResponse?.numerical_answer || '',
+        marksObtained: userResponse?.marks_obtained || 0
+      };
+    });
+
+    setSections(finalSections);
+    setQuestions(enrichedQuestions);
+    if (finalSections.length > 0) setActiveSection('all');
+
+    setLoading(false);
+  } catch (error) {
+    console.error('Error:', error);
+    alert('Failed to load solutions: ' + error.message);
+    setLoading(false);
+  }
+};
 
   // ✅ NEW CODE:
 const getCurrentSectionQuestions = useMemo(() => {
@@ -431,13 +389,13 @@ const handleSectionChange = (sectionId) => {
         <div className="bg-white border-b border-gray-300 flex items-center px-3 py-0.5 flex-shrink-0">
           <button
             onClick={() => router.back()}
-            className="bg-[#5B86C5] text-white px-3 py-1 text-xs font-medium hover:bg-[#4a75b4] transition-colors flex items-center gap-2"
+            className="bg-[#f50606] text-white px-3 py-1 text-xs font-medium hover:bg-[#4a75b4] transition-colors flex items-center gap-2"
             style={{ borderRadius: '4px 4px 0 0' }}
           >
             <Home size={14} />
             Back
           </button>
-          <div className="bg-[#5B86C5] text-white px-3 py-1 text-xs font-medium ml-2" style={{ borderRadius: '4px 4px 0 0' }}>
+          <div className="bg-[#068610] text-white px-3 py-1 text-xs font-medium ml-2" style={{ borderRadius: '4px 4px 0 0' }}>
             Test Solutions
           </div>
         </div>

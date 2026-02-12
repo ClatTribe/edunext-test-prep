@@ -19,7 +19,7 @@ export const SocialProof: React.FC = () => {
   };
 
   return (
-    <section id="waitlist" className="py-24" style={{ background: `linear-gradient(to bottom, ${primaryBg}, #0F1426)` }}>
+    <section className="py-24" style={{ background: `linear-gradient(to bottom, ${primaryBg}, #0F1426)` }}>
       <div className="max-w-4xl mx-auto px-4 text-center">
         <h2 className="text-4xl font-bold text-white mb-6">Join the Elite 1%</h2>
         <p className="text-gray-400 text-lg mb-10">

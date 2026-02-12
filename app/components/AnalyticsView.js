@@ -32,6 +32,37 @@ const AnalyticsView = ({ stats, onBack }) => {
     );
   }
 
+  // --- PLACE THIS LOGIC BEFORE RENDER ---
+const getDynamicInsights = () => {
+  if (!currentSubject || !currentSubject.topics || currentSubject.topics.length === 0) return [];
+
+  // Identify the weakest topic (Lowest Accuracy)
+  const weakTopic = [...currentSubject.topics].sort((a, b) => a.accuracy - b.accuracy)[0];
+  // Identify the slowest topic (Highest Time per Question)
+  const slowTopic = [...currentSubject.topics].sort((a, b) => b.avgTime - a.avgTime)[0];
+
+  return [
+    { 
+      id: 1, 
+      text: weakTopic?.accuracy < 60 
+        ? `Focus on ${weakTopic.topic}. Your accuracy is currently ${weakTopic.accuracy}%. Aim for a 75% benchmark.` 
+        : `Great consistency! You are performing well in ${currentSubject.subject}. Keep maintaining this lead.` 
+    },
+    { 
+      id: 2, 
+      text: slowTopic?.avgTime > 60 
+        ? `Improve speed in ${slowTopic.topic} (${slowTopic.avgTime}s/q). Try to bring it under the 45s benchmark.` 
+        : "Your response time is optimal. Continue focusing on conceptual precision." 
+    },
+    { 
+      id: 3, 
+      text: "Use 'Drill Mode' to target high-frequency questions in your lower accuracy segments." 
+    }
+  ];
+};
+
+const insights = getDynamicInsights();
+
   return (
     <div className="min-h-screen bg-[#0E172A] text-slate-100 p-8 overflow-y-auto">
       <div className="max-w-7xl mx-auto">
@@ -86,7 +117,9 @@ const AnalyticsView = ({ stats, onBack }) => {
                      </div>
                   </div>
                   <div className="text-right">
-                     <div className="text-2xl font-black text-emerald-400">+5.4%</div>
+                     <div className={`text-2xl font-black ${stats.improvement >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {stats.improvement > 0 ? `+${stats.improvement}%` : `${stats.improvement}%`}
+                    </div>
                      <div className="text-[10px] text-slate-500 font-bold">VS LAST WEEK</div>
                   </div>
                </div>
@@ -173,10 +206,10 @@ const AnalyticsView = ({ stats, onBack }) => {
   </div>
   
   <div className="space-y-4 pt-6 border-t border-white/5">
-    {/* <div className="flex justify-between text-xs font-bold">
+    <div className="flex justify-between text-xs font-bold">
       <span className="text-slate-500">Global Percentile</span>
       <span className="text-white">{stats.globalPercentile}%</span>
-    </div> */}
+    </div>
     <div className="flex justify-between text-xs font-bold">
       <span className="text-slate-500">Questions Solved</span>
       <span className="text-white">{stats.totalSolved}</span>
@@ -190,26 +223,24 @@ const AnalyticsView = ({ stats, onBack }) => {
 
              {/* Growth Strategy Card */}
              <div className="bg-slate-900/40 p-6 rounded-3xl border border-white/10 backdrop-blur-sm">
-                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">
-                  <Zap size={14} className="text-amber-500"/> Growth Strategy
-                </h4>
-                <div className="space-y-4">
-                   {[
-                     { id: 1, text: `Increase practice frequency for ${currentSubject?.subject} topics to improve consistency.` },
-                     { id: 2, text: "Reduce average response time in hard topics to stay under the 1-minute benchmark." },
-                     { id: 3, text: "Utilize Drill mode for lower accuracy segments." }
-                   ].map((item) => (
-                    <div key={item.id} className="flex gap-4 group cursor-pointer">
-                      <div className="shrink-0 w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center group-hover:bg-amber-500/20 transition-all font-bold text-xs">
-                        {item.id}
-                      </div>
-                      <p className="text-xs text-slate-400 font-medium leading-relaxed group-hover:text-slate-200">
-                        {item.text}
-                      </p>
-                    </div>
-                   ))}
-                </div>
-             </div>
+  <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">
+    <Zap size={14} className="text-amber-500"/> Growth Strategy
+  </h4>
+  <div className="space-y-4">
+    {insights.length > 0 ? insights.map((item) => (
+      <div key={item.id} className="flex gap-4 group cursor-pointer">
+        <div className="shrink-0 w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center group-hover:bg-amber-500/20 transition-all font-bold text-xs">
+          {item.id}
+        </div>
+        <p className="text-xs text-slate-400 font-medium leading-relaxed group-hover:text-slate-200">
+          {item.text}
+        </p>
+      </div>
+    )) : (
+      <p className="text-xs text-slate-500">Practice more to see insights.</p>
+    )}
+  </div>
+</div>
           </div>
 
         </div>

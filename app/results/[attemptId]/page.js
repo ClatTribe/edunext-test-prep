@@ -20,7 +20,7 @@ export default function ResultsPage() {
         setLoading(true);
         setError(null);
         
-        console.log('🔍 Fetching data for Attempt ID:', attemptId);
+        
 
         const { data, error: queryError } = await supabase
           .from('test_attempts')
@@ -28,6 +28,7 @@ export default function ResultsPage() {
           .eq('id', attemptId)
           .maybeSingle();
 
+          console.log('🔍 Fetching data for Attempt ID:', attemptId);
         console.log('📦 Query Result:', data);
         console.log('❌ Query Error:', queryError);
 

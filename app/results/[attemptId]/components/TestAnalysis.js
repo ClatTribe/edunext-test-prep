@@ -1105,11 +1105,11 @@ if (question.question_type === 'numerical') {
             <div className="flex items-center gap-2"><BarChart3 size={18} /><span>Performance</span></div>
           </button>
           
-          {isContest && (
+          {/* {isContest && (
             <button onClick={() => setActiveTab('leaderboard')} className={`px-6 py-3 rounded-xl font-bold text-sm uppercase tracking-widest transition-all ${activeTab === 'leaderboard' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30' : 'glass-panel border border-white/10 hover:border-amber-500/30 text-slate-400'}`}>
               <div className="flex items-center gap-2"><Trophy size={18} /><span>Leaderboard</span></div>
             </button>
-          )}
+          )} */}
 
           <button onClick={() => setActiveTab('solutions')} className={`px-6 py-3 rounded-xl font-bold text-sm uppercase tracking-widest transition-all ${activeTab === 'solutions' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30' : 'glass-panel border border-white/10 hover:border-amber-500/30 text-slate-400'}`}>
             <div className="flex items-center gap-2"><Lightbulb size={18} /><span>Solutions</span></div>
@@ -1595,10 +1595,10 @@ if (question.question_type === 'numerical') {
           )}
 
           {/* LEADERBOARD TAB - MODIFIED (Removed Your Rank Card) */}
-          {activeTab === 'leaderboard' && isContest && (
+          {/* {activeTab === 'leaderboard' && isContest && ( */}
             <>
               {/* Contest Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {/* <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="glass-panel rounded-2xl p-5 border border-white/10 hover:border-amber-500/30 transition-all group">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -1650,10 +1650,10 @@ if (question.question_type === 'numerical') {
                   </div>
                   <p className="text-xs text-slate-400">Highest score achieved</p>
                 </div>
-              </div>
+              </div> */}
 
               {/* Search Bar */}
-              <div className="flex items-center gap-4">
+              {/* <div className="flex items-center gap-4">
                 <div className="flex-1 relative">
                   <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
@@ -1664,10 +1664,10 @@ if (question.question_type === 'numerical') {
                     className="w-full pl-12 pr-4 py-3 rounded-xl glass-panel border border-white/10 focus:border-amber-500/50 outline-none text-sm text-white placeholder-slate-500"
                   />
                 </div>
-              </div>
+              </div> */}
 
               {/* Leaderboard Table */}
-              <div className="glass-panel rounded-3xl border border-white/10 overflow-hidden">
+              {/* <div className="glass-panel rounded-3xl border border-white/10 overflow-hidden">
                 <div className="p-6 border-b border-white/5 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Trophy size={22} style={{ color: THEME_PRIMARY }} />
@@ -1781,9 +1781,9 @@ if (question.question_type === 'numerical') {
                     </tbody>
                   </table>
                 </div>
-              </div>
+              </div> */}
             </>
-          )}
+          {/* )} */}
 
           {/* SOLUTIONS TAB - COMPLETE ORIGINAL DESIGN */}
           {activeTab === 'solutions' && (
