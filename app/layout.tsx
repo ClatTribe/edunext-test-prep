@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "EduNext / Jee Test Prep",
-  description: "India's premier JEE test prep platform",
+  title: "JEE Test Prep & Mock Exams | EduNext India's Premier Platform",
+  description: "Ace your JEE with EduNext, India's top test prep platform. Access AI-driven mock tests, expert counselling, and progress tracking. Start your journey today!",
   icons: {
     icon: [
       { url: '/favion.ico' },
