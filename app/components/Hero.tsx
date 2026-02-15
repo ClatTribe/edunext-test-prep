@@ -220,7 +220,7 @@ useEffect(() => {
                          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
                          <span className="text-white text-xs font-bold uppercase tracking-wider">Live Contest</span>
                       </div>
-                      <h3 className="text-white font-bold text-lg">Weekly Championship #42</h3>
+                      <h3 className="text-white font-bold text-lg">Weekly Championship #1</h3>
                    </div>
                 </div>
 

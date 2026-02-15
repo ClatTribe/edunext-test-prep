@@ -200,9 +200,14 @@ export default function ExamView({ questions, examType, onSubmit, onExit }) {
                   Clear Response
                 </button>
              </div>
+             <div className="flex flex-col gap-2">
              <div className="flex gap-2">
                 <button onClick={handlePrev} disabled={currentIdx === 0} className="nta-nav-btn rounded flex items-center gap-1"><ChevronLeft size={14}/> Previous</button>
-                <button onClick={handleNext} className="nta-nav-btn nta-nav-btn-primary rounded px-10 flex items-center gap-1">Save & Next <ChevronRight size={14}/></button>
+                <button onClick={handleNext} className="nta-nav-btn nta-nav-btn-primary rounded px-10 flex items-center gap-1">Save & Next<ChevronRight size={14}/></button>
+             </div>
+                            <p className="text-xs text-cyan-700 font-medium">
+                    "IMPORTANT: You must click 'Save & Next' after every question. Unsaved answers will be lost."
+                  </p>
              </div>
           </div>
         </div>

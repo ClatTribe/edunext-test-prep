@@ -476,10 +476,10 @@ if (question.question_type === 'numerical') {
           topicPerformance[topic].correct++;
         } else {
           totalIncorrect++;
-          obtainedMarks += negMarks;
+          obtainedMarks -= Math.abs(negMarks);
           if (diffAnalysis[difficulty]) diffAnalysis[difficulty].incorrect++;
           subjAnalysis[subject].incorrect++;
-          subjectScoresCalc[subject].obtained += negMarks;
+          subjectScoresCalc[subject].obtained -= Math.abs(negMarks);
           sectAnalysis[sectionName].incorrect++;
         }
       } else {
@@ -536,7 +536,7 @@ if (question.question_type === 'numerical') {
         subject: subject,
         visitNumber: response.visit_number || 1,
         totalVisits: response.total_visits || 1,
-        marksObtained: response.marks_obtained || (isCorrect ? posMarks : negMarks)
+        marksObtained: response.marks_obtained || (isCorrect ? posMarks : -Math.abs(negMarks))
       });
     });
 
@@ -570,7 +570,7 @@ if (question.question_type === 'numerical') {
     const avgTimePerQuestion = responses.length > 0 ? (totalTimeSpent / responses.length).toFixed(1) : 0;
 
     setStats({
-      totalQuestions: responses.length,
+      totalQuestions: questions.length,
       correct: totalCorrect,
       incorrect: totalIncorrect,
       unattempted: totalUnattempted,

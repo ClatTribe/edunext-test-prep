@@ -152,8 +152,8 @@ const App: React.FC = () => {
     <div className="bg-brand-dark min-h-screen text-white font-sans selection:bg-brand-accent selection:text-brand-dark">
       <Navbar />
       <main>
-        <JeePercentilePredictor />
         <Hero />
+        <JeePercentilePredictor />
         <ContestSection />
         <Features />
         <Founders />
