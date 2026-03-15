@@ -1,13 +1,14 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import AnalyticsView from '../../components/AnalyticsView';
-import Dashboard from './components/Dashboard'; 
+import Dashboard from './components/Dashboard';
 import { supabase } from '@/lib/supabase';
 
 export default function AIPrepPage() {
   const router = useRouter();
-  const [showAnalytics, setShowAnalytics] = useState(false);
+  const searchParams = useSearchParams();
+  const [showAnalytics, setShowAnalytics] = useState(searchParams.get('view') === 'insights');
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState(null);

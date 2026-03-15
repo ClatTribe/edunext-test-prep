@@ -2,16 +2,44 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Flame, Trophy, Target, Zap, LayoutGrid, ChevronRight, BarChart3, Clock, Users, CalendarDays, Brain, Star, TrendingUp, BookOpen, AlertCircle, CheckCircle, Search, ChevronDown, ChevronUp, Eye, FileText,LogOut } from 'lucide-react';
+import { Flame, Trophy, Target, Zap, LayoutGrid, ChevronRight, BarChart3, Clock, Users, CalendarDays, Brain, Star, TrendingUp, BookOpen, AlertCircle, CheckCircle, Search, ChevronDown, ChevronUp, Eye, FileText, ArrowRight, LogOut, LayoutDashboard, User } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
+import { useRef, useEffect as useEffectOnce } from 'react';
 import Link from 'next/link';
 import AnalyticsView from '../../../components/AnalyticsView';
 
 export default function Dashboard({ stats = {}, currentUserId, onNavigate,onOpenAnalytics }) {
-  const router = useRouter(); 
+  const router = useRouter();
   const THEME_PRIMARY = "#F59E0B";
   const THEME_BG = "#0E172A";
+
+  const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
+  const [authUser, setAuthUser] = useState(null);
+  const accountDropdownRef = useRef(null);
+
+  // Fetch authenticated user info (avatar, name, email)
+  useEffectOnce(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) setAuthUser(data.user);
+    });
+  }, []);
+
+  // Close dropdown on outside click
+  useEffectOnce(() => {
+    const handleClickOutside = (e) => {
+      if (accountDropdownRef.current && !accountDropdownRef.current.contains(e.target)) {
+        setAccountDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const avatarUrl = authUser?.user_metadata?.avatar_url;
+  const fullName = authUser?.user_metadata?.full_name || authUser?.email?.split('@')[0] || '';
+  const userEmail = authUser?.email || '';
+  const initials = fullName.charAt(0).toUpperCase();
 
   const [contests, setContests] = useState([]);
   const [previousContests, setPreviousContests] = useState([]);
@@ -650,30 +678,77 @@ useEffect(() => {
           </div>
         </div>
 
-        <div className="flex items-center gap-8">
-           <div className="flex items-center gap-6">
-              {/* <div className="flex items-center gap-1.5 font-bold px-3 py-1 rounded-full border" style={{ color: THEME_PRIMARY, borderColor: `${THEME_PRIMARY}33`, backgroundColor: `${THEME_PRIMARY}11` }}>
-                <Flame size={16} fill="currentColor" /> {currentStreak}
-              </div>
-              <div className="flex items-center gap-1.5 font-bold px-3 py-1 rounded-full border" style={{ color: THEME_PRIMARY, borderColor: `${THEME_PRIMARY}33`, backgroundColor: `${THEME_PRIMARY}11` }}>
-                <Trophy size={16} fill="currentColor" /> {stats.rating || 0}
-              </div> */}
+        <div className="flex items-center gap-4">
+           {/* Account Circle */}
+           <div className="relative" ref={accountDropdownRef}>
+             <button
+               onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
+               className="w-10 h-10 rounded-full border-2 border-amber-500/50 hover:border-amber-500 transition-all duration-300 overflow-hidden flex items-center justify-center bg-amber-500/10 hover:bg-amber-500/20"
+             >
+               {avatarUrl ? (
+                 <img src={avatarUrl} alt={fullName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+               ) : (
+                 <span className="text-sm font-bold text-amber-500">{initials}</span>
+               )}
+             </button>
+
+             {accountDropdownOpen && (
+               <div className="absolute right-0 mt-3 w-64 rounded-2xl border border-white/10 bg-[#0F172A]/95 backdrop-blur-xl shadow-2xl shadow-black/50 overflow-hidden z-50">
+                 {/* User Info */}
+                 <div className="px-5 py-4 border-b border-white/10">
+                   <div className="flex items-center gap-3">
+                     <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10 flex items-center justify-center bg-amber-500/10 shrink-0">
+                       {avatarUrl ? (
+                         <img src={avatarUrl} alt={fullName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                       ) : (
+                         <span className="text-sm font-bold text-amber-500">{initials}</span>
+                       )}
+                     </div>
+                     <div className="min-w-0">
+                       <p className="text-sm font-bold text-white truncate">{fullName}</p>
+                       <p className="text-[11px] text-slate-500 truncate">{userEmail}</p>
+                     </div>
+                   </div>
+                 </div>
+
+                 {/* Menu Items */}
+                 <div className="py-2">
+                   <button
+                     onClick={() => { onOpenAnalytics(); setAccountDropdownOpen(false); }}
+                     className="flex items-center gap-3 px-5 py-3 text-sm text-slate-300 hover:text-white hover:bg-white/5 transition-all w-full"
+                   >
+                     <BarChart3 size={16} className="text-amber-500" />
+                     <span className="font-medium">Insights</span>
+                   </button>
+                   <button
+                     onClick={() => { router.push('/dashboard/ai-prep/practice'); setAccountDropdownOpen(false); }}
+                     className="flex items-center gap-3 px-5 py-3 text-sm text-slate-300 hover:text-white hover:bg-white/5 transition-all w-full"
+                   >
+                     <User size={16} className="text-amber-500" />
+                     <span className="font-medium">Practice</span>
+                   </button>
+                   <a
+                     href="/"
+                     className="flex items-center gap-3 px-5 py-3 text-sm text-slate-300 hover:text-white hover:bg-white/5 transition-all"
+                   >
+                     <LayoutDashboard size={16} className="text-amber-500" />
+                     <span className="font-medium">Home</span>
+                   </a>
+                 </div>
+
+                 {/* Logout */}
+                 <div className="border-t border-white/10 py-2">
+                   <button
+                     onClick={() => { handleLogout(); setAccountDropdownOpen(false); }}
+                     className="flex items-center gap-3 px-5 py-3 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/5 transition-all w-full"
+                   >
+                     <LogOut size={16} />
+                     <span className="font-medium">Sign Out</span>
+                   </button>
+                 </div>
+               </div>
+             )}
            </div>
-           <button 
-            onClick={onOpenAnalytics}
-            className="flex items-center gap-2 text-xs font-bold hover:text-amber-400 transition-colors"
-           >
-             <BarChart3 size={16}/> INSIGHTS
-           </button>
-           <div className="flex items-center gap-3 ml-2 border-l border-white/10 pl-6">
-      <button 
-        onClick={handleLogout}
-        className="p-2 hover:bg-red-500/10 text-slate-400 hover:text-red-500 rounded-xl transition-all group"
-        title="Logout"
-      >
-        <LogOut size={20} />
-      </button>
-   </div>
         </div>
       </nav>
 
@@ -706,7 +781,7 @@ useEffect(() => {
                </div>
             </div> */}
 
-            <div className="glass-panel rounded-3xl p-6 border border-white/10 relative overflow-hidden group mt-4">
+  <div className="glass-panel rounded-3xl p-6 border border-white/10 relative overflow-hidden group mt-4">
   {/* Background Decoration */}
   <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:opacity-20 transition-opacity">
     <Flame size={100} fill={THEME_PRIMARY} />
@@ -729,6 +804,26 @@ useEffect(() => {
     <p className="text-[9px] text-slate-500 mt-2 font-medium uppercase tracking-tighter">
       {7 - (currentStreak % 7)} days until next milestone
     </p>
+
+    {/* AI Tutor Training Button */}
+    <div className="mt-4 pt-4 border-t border-white/10">
+      <button
+        onClick={async () => {
+          const { data: { session } } = await supabase.auth.getSession();
+          const params = new URLSearchParams();
+          if (session?.access_token) params.set('access_token', session.access_token);
+          if (session?.refresh_token) params.set('refresh_token', session.refresh_token);
+          window.location.href = `https://ai.getedunext.com/?${params.toString()}`;
+        }}
+        className="w-full inline-flex items-center gap-3 px-4 py-3 rounded-2xl bg-gradient-to-r from-orange-500/20 to-blue-500/20 backdrop-blur-sm border border-white/20 hover:border-white/40 hover:shadow-2xl hover:shadow-orange-500/20 transition-all duration-300 group text-white font-semibold text-sm"
+      >
+        <div className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center group-hover:bg-orange-500 group-hover:text-black transition-all">
+          <Brain className="w-4 h-4" />
+        </div>
+        <span>AI Training</span>
+        <ArrowRight className="w-4 h-4 ml-auto group-hover:translate-x-1 transition-transform" />
+      </button>
+    </div>
   </div>
 </div>
 
