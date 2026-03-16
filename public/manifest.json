@@ -1,0 +1,16 @@
+{
+  "name": "EduNext - JEE Test Prep",
+  "short_name": "EduNext",
+  "description": "India's premier JEE test prep platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050818",
+  "theme_color": "#F59E0B",
+  "icons": [
+    {
+      "src": "/favicon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    }
+  ]
+}
