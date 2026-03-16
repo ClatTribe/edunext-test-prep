@@ -30,5 +30,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "edunext-sanity", "ipm-careers-mock-master", "jee-testprep", "vite.config.ts", "App.tsx", "index.tsx", "types.ts", "components", "services"]
 }

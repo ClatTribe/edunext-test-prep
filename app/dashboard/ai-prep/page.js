@@ -1,11 +1,11 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import AnalyticsView from '../../components/AnalyticsView';
 import Dashboard from './components/Dashboard';
 import { supabase } from '@/lib/supabase';
 
-export default function AIPrepPage() {
+function AIPrepContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [showAnalytics, setShowAnalytics] = useState(searchParams.get('view') === 'insights');
@@ -177,8 +177,16 @@ export default function AIPrepPage() {
 
   return (
     <div className="relative">
-      <Dashboard currentUserId={session.user.id} onOpenAnalytics={() => setShowAnalytics(true)}/> 
+      <Dashboard currentUserId={session.user.id} onOpenAnalytics={() => setShowAnalytics(true)}/>
     </div>
+  );
+}
+
+export default function AIPrepPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0E172A] flex items-center justify-center text-white">Loading...</div>}>
+      <AIPrepContent />
+    </Suspense>
   );
 }
 
