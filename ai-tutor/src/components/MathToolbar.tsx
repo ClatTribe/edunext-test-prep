@@ -99,11 +99,11 @@ export default function MathToolbar({ editor, isDarkMode = false, onTutorToggle,
         switch (subjectName?.toLowerCase()) {
             case 'mathematics':
             case 'math':
-                return { name: 'Ashutosh Sir', image: '/tutors/ashutosh_sir.png', role: 'Math Expert' }
+                return { name: 'Ashutosh Sir', image: '/ai-tutor/tutors/ashutosh_sir.png', role: 'Math Expert' }
             case 'physics':
-                return { name: 'Anish Sir', image: '/tutors/anish_sir.png', role: 'Physics Expert' }
+                return { name: 'Anish Sir', image: '/ai-tutor/tutors/anish_sir.png', role: 'Physics Expert' }
             case 'chemistry':
-                return { name: 'Pankaj Sir', image: '/tutors/pankaj_sir.png', role: 'Chemistry Expert' }
+                return { name: 'Pankaj Sir', image: '/ai-tutor/tutors/pankaj_sir.png', role: 'Chemistry Expert' }
             default:
                 return { name: 'AI Tutor', image: '/image.png', role: 'Expert Tutor' }
         }

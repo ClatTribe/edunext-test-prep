@@ -512,9 +512,9 @@ export default function Workspace({ questions }: { questions: Question[] }) {
                         let tutorName = 'AI Tutor'
                         let tutorImage = '/image.png'
                         const subj = selectedSubject !== 'All' ? selectedSubject : (questions[currentQuestionIndex]?.subject || 'Physics')
-                        if (subj === 'Math')      { tutorName = 'Ashish Sir'; tutorImage = '/tutors/ashish_sir.png' }
-                        else if (subj === 'Physics')   { tutorName = 'Anish Sir';  tutorImage = '/tutors/anish_sir.png' }
-                        else if (subj === 'Chemistry') { tutorName = 'Pankaj Sir'; tutorImage = '/tutors/pankaj_sir.png' }
+                        if (subj === 'Math')      { tutorName = 'Ashish Sir'; tutorImage = '/ai-tutor/tutors/ashish_sir.png' }
+                        else if (subj === 'Physics')   { tutorName = 'Anish Sir';  tutorImage = '/ai-tutor/tutors/anish_sir.png' }
+                        else if (subj === 'Chemistry') { tutorName = 'Pankaj Sir'; tutorImage = '/ai-tutor/tutors/pankaj_sir.png' }
 
                         if (data.type !== 'step') {
                             setBanner({ type: bannerType, title: data.title || 'AI Action', content: data.content, tutorInfo: { name: tutorName, image: tutorImage } } as any)

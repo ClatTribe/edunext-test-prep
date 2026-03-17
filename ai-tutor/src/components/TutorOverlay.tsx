@@ -118,10 +118,10 @@ export default function TutorOverlay({
     const getTutorInfo = (subjectName?: string) => {
         switch (subjectName?.toLowerCase()) {
             case 'mathematics':
-            case 'math':      return { name: 'Ashish Sir', image: '/tutors/ashish_sir.png', role: 'Math Expert' }
-            case 'physics':   return { name: 'Anish Sir',  image: '/tutors/anish_sir.png',  role: 'Physics Expert' }
-            case 'chemistry': return { name: 'Pankaj Sir', image: '/tutors/pankaj_sir.png', role: 'Chemistry Expert' }
-            default:          return { name: 'AI Tutor',   image: '/image.png', role: 'Expert Tutor' }
+            case 'math':      return { name: 'Ashish Sir', image: '/ai-tutor/tutors/ashish_sir.png', role: 'Math Expert' }
+            case 'physics':   return { name: 'Anish Sir',  image: '/ai-tutor/tutors/anish_sir.png',  role: 'Physics Expert' }
+            case 'chemistry': return { name: 'Pankaj Sir', image: '/ai-tutor/tutors/pankaj_sir.png', role: 'Chemistry Expert' }
+            default:          return { name: 'AI Tutor',   image: '/ai-tutor/image.png', role: 'Expert Tutor' }
         }
     }
 
