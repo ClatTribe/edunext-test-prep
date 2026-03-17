@@ -5,11 +5,11 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/ai-tutor",
-        destination: "https://tutorgetedunextcom.vercel.app/",
+        destination: "https://tutorgetedunextcom.vercel.app/ai-tutor",
       },
       {
         source: "/ai-tutor/:path*",
-        destination: "https://tutorgetedunextcom.vercel.app/:path*",
+        destination: "https://tutorgetedunextcom.vercel.app/ai-tutor/:path*",
       },
     ];
   },

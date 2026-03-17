@@ -179,7 +179,7 @@ export default function MathToolbar({ editor, isDarkMode = false, onTutorToggle,
 
             if (!base64) throw new Error("Could not capture image from selection")
 
-            const res = await fetch(`/ai-tutor/api/transcribe`, {
+            const res = await fetch(`/api/transcribe`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ image: base64 })
