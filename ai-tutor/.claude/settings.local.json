@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill //F //PID 6140)",
+      "Bash(rm -rf .next/dev/lock)",
+      "Bash(npx next:*)",
+      "Bash(npx tsc:*)",
+      "Bash(grep -r \"redirect\\\\|window.location\" /c/Users/KIIT/Desktop/edunext-test-prep/app/dashboard/ai-prep --include=*.js --include=*.jsx)",
+      "Bash(grep -r from\\\\\\(/c/Users/KIIT/Desktop/edunext-test-prep/app --include=*.js --include=*.jsx)",
+      "Bash(grep -r .from /c/Users/KIIT/Desktop/edunext-test-prep/app --include=*.js --include=*.jsx)",
+      "Bash(npx vercel:*)",
+      "Bash(git clone:*)"
+    ]
+  }
+}
