@@ -813,7 +813,7 @@ useEffect(() => {
           const params = new URLSearchParams();
           if (session?.access_token) params.set('access_token', session.access_token);
           if (session?.refresh_token) params.set('refresh_token', session.refresh_token);
-          window.location.href = `https://tutorgetedunext-1unkgkerx-clat-tribes-projects.vercel.app/?${params.toString()}`;
+          window.location.href = `https://tutorgetedunextcom.vercel.app/?${params.toString()}`;
         }}
         className="w-full inline-flex items-center gap-3 px-4 py-3 rounded-2xl bg-gradient-to-r from-orange-500/20 to-blue-500/20 backdrop-blur-sm border border-white/20 hover:border-white/40 hover:shadow-2xl hover:shadow-orange-500/20 transition-all duration-300 group text-white font-semibold text-sm"
       >
