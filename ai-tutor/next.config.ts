@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  basePath: '/ai-tutor',
   reactStrictMode: false,
   async headers() {
     return [

@@ -40,8 +40,7 @@ export async function getQuestions(filters: Filters = {}): Promise<Question[]> {
   if (filters.difficulty) params.set('difficulty', filters.difficulty)
   if (filters.type)       params.set('type', filters.type)
 
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''
-  const res = await fetch(`${basePath}/api/questions?${params.toString()}`)
+  const res = await fetch(`/ai-tutor/api/questions?${params.toString()}`)
 
   if (res.status === 401) {
     throw new Error('Please log in to access questions')
@@ -61,8 +60,7 @@ export async function getSubjects(): Promise<string[]> {
 export async function getDistinctValues(
   column: 'subject' | 'topic' | 'chapter' | 'difficulty' | 'type'
 ): Promise<string[]> {
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''
-  const res = await fetch(`${basePath}/api/questions`, {
+  const res = await fetch(`/ai-tutor/api/questions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ column }),
