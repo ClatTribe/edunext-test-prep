@@ -315,7 +315,7 @@ export default function Workspace({ questions }: { questions: Question[] }) {
             let sessionId: string | undefined
             try { sessionId = getTracker().getSessionId() } catch {}
 
-            const response = await fetch(`/api/tutor`, {
+            const response = await fetch(`/ai-tutor/api/tutor`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
