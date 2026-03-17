@@ -107,6 +107,7 @@ export const Navbar: React.FC = () => {
                 PEDIGREE
                 <span className="absolute -bottom-1 left-0 w-0 h-[1px] bg-amber-500 transition-all duration-300 group-hover:w-full"></span>
               </button>
+
             </div>
 
             <div className="h-5 w-[1px] bg-white/20"></div>
